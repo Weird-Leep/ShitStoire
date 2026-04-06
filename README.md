@@ -1,0 +1,34 @@
+# ShitStoire - Exploreur de Base de Données Historique
+
+Une plateforme "Full-stack" complète (Vanilla JS, Node.js, Express, better-sqlite3) qui permet d'afficher en temps réel de riches visualisations sur la structure d'une base de données `sqlite` existante.
+
+## 🚀 Lancement
+
+Pour lancer le serveur de l'application :
+
+1. Ouvrez un terminal dans la racine du dossier principal.
+2. Exécutez `npm install`.
+3. Lancez le serveur d'API Node avec :
+   ```bash
+   node backend/server.js
+   ```
+4. Ouvrez votre navigateur web à l'adresse **`http://localhost:3000`**
+
+---
+
+## 🎨 Fonctionnalités Graphiques Intégrées
+Le volet "Visualisations" (`visualisations.html`) fournit des outils externes pour relier intelligemment vos tables :
+- **Tabulator (DataTables)** : Tableur dynamique classant les évènements et incluant les mots-clés interactifs (Badges). Le rendu des dates interprète et formatte la *Précision* de la base de données.
+- **Vis.js - Timeline (Frise Chronologique)** : Rendu linéaire chronologique avec des pistes distinctes pour vos "Personnages", "Évènements" et "Entités Politiques".
+- **Leaflet (Cartographie)** : Affichage du globe mappant les entités de type "Lieu", couplé avec leurs connexions historiques dans une popup visuelle au clic.
+- **Vis.js - Network (Graphe de Réseau)** : Affichage d'un graphe spatial auto-structurant permettant d'étudier la cartographie des liaisons relationnelles par catégories.
+
+## 🛠️ Panel d'Administration (CRUD)
+Le système propose un affichage simple (`admin.html`) permettant :
+- La création, la mise à jour et la suppression des entités dans la base de données.
+- L'utilisation de selecteurs pour n'avoir le choix de précision de date qu'entre `Jour`, `Mois` et `Année`.
+- **Mécanique en cascade** : Si une entité est supprimée sur l'application, l'API enverra massivement les requêtes pour nettoyer les tables intermédiaires en liant (fini les "Liens Fantômes").
+- **Délier & Lier (Relationships)** : Chaque édition d'entité permet, tout en bas de page, de l'associée à une autre entité existante en sélectionnant visuellement le `nom` de l'entité sans devoir connaitre son `ID` SQLite par coeur.
+
+## 📦 Export
+Sur la page d'administration, se trouve un bouton d'export dans la barre latérale gauche. Celui-ci utilise la bibliothèque Node `archiver` pour compacter à la volée le fichier binaire `.sqlite` ainsi que l'ensemble du dossier des images `/uploads` ajoutées depuis l'interface d'administration.

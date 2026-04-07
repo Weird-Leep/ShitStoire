@@ -34,9 +34,9 @@ app.get('/api/export', (req, res) => {
     archive.pipe(res);
 
     // Ajout de la base de données SQL
-    const dbFile = path.join(__dirname, '../database_export.sqlite');
+    const dbFile = path.join(__dirname, '../shitstoire_db.sqlite');
     if (fs.existsSync(dbFile)) {
-        archive.file(dbFile, { name: 'database_export.sqlite' });
+        archive.file(dbFile, { name: 'shitstoire_db.sqlite' });
     }
 
     // Ajout du dossier complet contenant les images uploadées (S'il existe)

@@ -12,7 +12,10 @@ function buildFilterUI() {
         container.innerHTML = `
             <b>Filtres par liens :</b>
             ${FILTER_TYPES.map(type => `<select class="link-filter" data-type="${type}" onchange="triggerActiveVisualisationRefresh()"><option value="">-- ${type.replace('_', ' ')} --</option></select>`).join('')}
-            <button onclick="resetActiveFilters(this)">Réinitialiser</button>
+            <span style="margin-left:15px; border-left: 1px solid #ccc; padding-left: 15px;"><b>Filtres par dates :</b>
+            <input type="date" class="date-filter-start" onchange="triggerActiveVisualisationRefresh()"> au
+            <input type="date" class="date-filter-end" onchange="triggerActiveVisualisationRefresh()"></span>
+            <button onclick="resetActiveFilters(this)" style="margin-left: 10px;">Réinitialiser</button>
         `;
     });
 }
@@ -87,6 +90,8 @@ function resetActiveFilters(btn) {
     const container = btn.closest('.vis-link-filters');
     if (!container) return;
     container.querySelectorAll('.link-filter').forEach(s => s.value = '');
+    container.querySelector('.date-filter-start').value = '';
+    container.querySelector('.date-filter-end').value = '';
     triggerActiveVisualisationRefresh();
 }
 
@@ -97,18 +102,49 @@ function filterEntities(entities, entityType) {
     // Get active filters for CURRENT VISUALISATION ONLY
     const activeFilters = {};
     const activeSection = document.querySelector('.vis-section.active');
+    let startDateFilter = null;
+    let endDateFilter = null;
+
     if (activeSection) {
         activeSection.querySelectorAll('.link-filter').forEach(select => {
             if(select.value) {
                 activeFilters[select.dataset.type] = parseInt(select.value, 10);
             }
         });
+
+        const startInput = activeSection.querySelector('.date-filter-start');
+        const endInput = activeSection.querySelector('.date-filter-end');
+
+        if (startInput && startInput.value) {
+            startDateFilter = new Date(startInput.value);
+            startDateFilter.setHours(0, 0, 0, 0);
+        }
+        if (endInput && endInput.value) {
+            endDateFilter = new Date(endInput.value);
+            endDateFilter.setHours(23, 59, 59, 999);
+        }
     }
 
-    if (Object.keys(activeFilters).length === 0) return entities; // No filters active
+    if (Object.keys(activeFilters).length === 0 && !startDateFilter && !endDateFilter) return entities; // No filters active
 
     // For each entity, check if it satisfies all active filters
     return entities.filter(ent => {
+        // Date filtering logic
+        if (startDateFilter || endDateFilter) {
+            const startStr = ent.Date_Debut || ent.Date_Naissance || ent.Date_Creation;
+            const endStr = ent.Date_Fin || ent.Date_Mort || ent.Date_Dissolution || startStr; // Fallback to start if no end
+
+            if (!startStr) {
+                return false; // Si l'entité n'a pas de date et qu'on filtre par date, on l'exclut.
+            }
+
+            const itemStart = new Date(startStr);
+            const itemEnd = endStr ? new Date(endStr) : itemStart;
+
+            if (startDateFilter && itemEnd < startDateFilter) return false;
+            if (endDateFilter && itemStart > endDateFilter) return false;
+        }
+
         for (const [filterType, filterId] of Object.entries(activeFilters)) {
             // If the entity itself is the filtered type, just check if IDs match
             if (entityType === filterType) {

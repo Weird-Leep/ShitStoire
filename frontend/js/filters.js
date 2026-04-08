@@ -6,6 +6,28 @@ let filtersReady = false;
 // The types we can filter by
 const FILTER_TYPES = ['Evenement', 'Personnages', 'Lieu', 'Entite_politique', 'Tags', 'Fonctions', 'Source'];
 
+function initSelect2ForFilters(scope = document) {
+    if (!window.jQuery || !window.jQuery.fn || !window.jQuery.fn.select2) return;
+
+    const $ = window.jQuery;
+    const $scope = $(scope);
+    const targets = $scope.find('.link-filter, #filter-entity');
+
+    targets.each(function() {
+        const $select = $(this);
+        if ($select.hasClass('select2-hidden-accessible')) {
+            $select.select2('destroy');
+        }
+
+        const placeholder = $select.find('option:first').text() || 'Sélectionner';
+        $select.select2({
+            width: '220px',
+            placeholder,
+            allowClear: true
+        });
+    });
+}
+
 function buildFilterUI() {
     const containers = document.querySelectorAll('.vis-link-filters');
     containers.forEach(container => {
@@ -18,6 +40,8 @@ function buildFilterUI() {
             <button onclick="resetActiveFilters(this)" style="margin-left: 10px;">Réinitialiser</button>
         `;
     });
+
+    initSelect2ForFilters();
 }
 
 async function initFilters() {
@@ -73,6 +97,8 @@ function populateFilterSelect(type, data) {
     document.querySelectorAll(`.link-filter[data-type="${type}"]`).forEach(select => {
         select.innerHTML = html;
     });
+
+    initSelect2ForFilters();
 }
 
 function triggerActiveVisualisationRefresh() {
@@ -89,7 +115,12 @@ function triggerActiveVisualisationRefresh() {
 function resetActiveFilters(btn) {
     const container = btn.closest('.vis-link-filters');
     if (!container) return;
-    container.querySelectorAll('.link-filter').forEach(s => s.value = '');
+    container.querySelectorAll('.link-filter').forEach(s => {
+        s.value = '';
+        if (window.jQuery) {
+            window.jQuery(s).trigger('change.select2');
+        }
+    });
     container.querySelector('.date-filter-start').value = '';
     container.querySelector('.date-filter-end').value = '';
     triggerActiveVisualisationRefresh();
@@ -199,4 +230,5 @@ function filterEntities(entities, entityType) {
 
 document.addEventListener("DOMContentLoaded", () => {
     initFilters();
+    initSelect2ForFilters();
 });

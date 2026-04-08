@@ -4,6 +4,30 @@ let currentRows = [];
 let cachedLinkData = {}; // Cache the link data for filtering
 let editingId = null;
 
+function initSelect2Admin(scope = document) {
+  if (!window.jQuery || !window.jQuery.fn || !window.jQuery.fn.select2) return;
+
+  const $ = window.jQuery;
+  const $scope = $(scope);
+  const targets = $scope.find(
+    '#link-target-type, #link-target-id',
+  );
+
+  targets.each(function () {
+    const $select = $(this);
+    if ($select.hasClass("select2-hidden-accessible")) {
+      $select.select2("destroy");
+    }
+
+    const placeholder = $select.find("option:first").text() || "Sélectionner";
+    $select.select2({
+      width: "260px",
+      placeholder,
+      allowClear: true,
+    });
+  });
+}
+
 // Form template definition per entity
 const schemas = {
   Evenement: [
@@ -260,6 +284,8 @@ function showAddForm(rowData = null) {
   document.getElementById("links-manager-container").style.display = rowData
     ? "block"
     : "none"; // Only link after creation
+
+  initSelect2Admin();
 }
 
 async function editRow(id) {
@@ -412,6 +438,7 @@ function populateLinkTargetTypes() {
     select.innerHTML += `<option value="${rel.target}">${rel.target}</option>`;
   });
   document.getElementById("link-target-id").innerHTML = ""; // reset options
+  initSelect2Admin();
 }
 
 async function loadLinkTargets() {
@@ -445,13 +472,21 @@ async function loadLinkTargets() {
   const data = await res.json();
 
   const displayF = getDisplayField(targetType);
-  selectId.innerHTML = data
+  selectId.innerHTML =
+    '<option value="">-- Sélectionnez un élément --</option>' +
+    data
     .map(
       (d) =>
         `<option value="${d.ID}">${d[displayF] || "Sans nom"} (ID: ${d.ID})</option>`,
     )
     .join("");
+
+  initSelect2Admin();
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+  initSelect2Admin();
+});
 
 async function addLink() {
   const targetType = document.getElementById("link-target-type").value;

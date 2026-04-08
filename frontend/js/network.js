@@ -1,4 +1,4 @@
-const NET_API = "http://localhost:3000/api";
+const NET_API = "/api";
 let networkInstance = null;
 let nodesDataSet = new vis.DataSet();
 let edgesDataSet = new vis.DataSet();

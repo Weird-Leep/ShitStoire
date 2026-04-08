@@ -1,7 +1,7 @@
 ﻿let timelineInstance = null;
 
 // The backend endpoint defined for reusable code
-const TL_API = "http://localhost:3000/api";
+const TL_API = "/api";
 
 function parseDateStr(dateStr) {
     if(!dateStr) return null;

@@ -1,4 +1,4 @@
-const API = "http://localhost:3000/api";
+const API = "/api";
 let currentEntity = null;
 let currentRows = [];
 let cachedLinkData = {}; // Cache the link data for filtering

@@ -1,5 +1,5 @@
 // The backend endpoint defined for reusable code
-const SEQ_API = "http://localhost:3000/api";
+const SEQ_API = "/api";
 
 function parseDateStrSeq(dateStr) {
     if(!dateStr) return null;

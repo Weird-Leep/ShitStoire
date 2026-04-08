@@ -1,4 +1,4 @@
-const MAP_API = "http://localhost:3000/api";
+const MAP_API = "/api";
 let mapInstance = null;
 let markersLayer = null;
 

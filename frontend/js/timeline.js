@@ -32,16 +32,19 @@ async function loadTimelineData() {
     }
 
     if (showEv) {
-        groupsData.push({ id: 'ev', content: 'Évènements', order: 1 });
+        groupsData.push({ id: 'ev', content: 'Évènements', order: 1, nestedGroups: ['ev_long', 'ev_short'] });
+        groupsData.push({ id: 'ev_long', content: 'Longs' });
+        groupsData.push({ id: 'ev_short', content: 'Courts' });
         events.forEach(e => {
             const start = parseDateStr(e.Date_Debut);
-            const end = parseDateStr(e.Date_Fin);
+            let endOrig = parseDateStr(e.Date_Fin);
+            const end = endOrig ? new Date(endOrig.getTime() - 1) : null;
             
             if (start) {
                 // Calculate duration in days 
                 let isShort = false;
-                if(end) {
-                    const daysDiff = (end - start) / (1000 * 60 * 60 * 24);
+                if(endOrig) {
+                    const daysDiff = (endOrig - start) / (1000 * 60 * 60 * 24);
                     if(daysDiff < 30) isShort = true;
                 } else {
                     isShort = true; // No end date = single point = short
@@ -49,8 +52,7 @@ async function loadTimelineData() {
                 
                 itemsData.push({
                     id: 'ev_' + e.ID,
-                    group: 'ev',
-                    subgroup: isShort ? '1' : '2',
+                    group: isShort ? 'ev_short' : 'ev_long',
                     content: `<div><b>${e.titre}</b></div>`,
                     start: start,
                     end: end,
@@ -68,11 +70,12 @@ async function loadTimelineData() {
         groupsData.push({ id: 'pe', content: 'Personnages', order: 2 });
         persons.forEach(p => {
             const start = parseDateStr(p.Date_Naissance);
-            const end = parseDateStr(p.Date_Mort);
+            let endOrig = parseDateStr(p.Date_Mort);
+            const end = endOrig ? new Date(endOrig.getTime() - 1) : null;
             if (start) {
                 let isShort = false;
-                if(end) {
-                    const daysDiff = (end - start) / (1000 * 60 * 60 * 24);
+                if(endOrig) {
+                    const daysDiff = (endOrig - start) / (1000 * 60 * 60 * 24);
                     if(daysDiff < 30) isShort = true;
                 } else {
                     isShort = true;
@@ -81,7 +84,6 @@ async function loadTimelineData() {
                 itemsData.push({
                     id: 'pe_' + p.ID,
                     group: 'pe',
-                    subgroup: isShort ? '1' : '2',
                     content: `<div>👤 ${p.Nom}</div>`,
                     start: start,
                     end: end,
@@ -99,11 +101,12 @@ async function loadTimelineData() {
         groupsData.push({ id: 'ep', content: 'Entités Politiques', order: 3 });
         politics.forEach(ep => {
             const start = parseDateStr(ep.Date_Debut);
-            const end = parseDateStr(ep.Date_Fin);
+            let endOrig = parseDateStr(ep.Date_Fin);
+            const end = endOrig ? new Date(endOrig.getTime() - 1) : null;
             if (start) {
                 let isShort = false;
-                if(end) {
-                    const daysDiff = (end - start) / (1000 * 60 * 60 * 24);
+                if(endOrig) {
+                    const daysDiff = (endOrig - start) / (1000 * 60 * 60 * 24);
                     if(daysDiff < 30) isShort = true;
                 } else {
                     isShort = true;
@@ -112,7 +115,6 @@ async function loadTimelineData() {
                 itemsData.push({
                     id: 'ep_' + ep.ID,
                     group: 'ep',
-                    subgroup: isShort ? '1' : '2',
                     content: `<div>🛡️ ${ep.titre}</div>`,
                     start: start,
                     end: end,

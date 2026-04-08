@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ShitStoire - Administration et Formulaires</title>
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/theme-retrowave.css">
+    <link rel="stylesheet" href="css/theme-modern.css">
     <link rel="stylesheet" href="css/admin.css">
 </head>
 <body>
@@ -37,8 +37,8 @@
             <hr>
             <div>
                 <h4>Restauration & Backup</h4>
-                <p style="font-size: 12px; color: gray;">Exportez la base locale et l'ensemble des images liées pour une sauvegarde complète en une fois.</p>
-                <a href="http://localhost:3000/api/export" class="export-btn" style="display:block; background:#007bff; color:white; text-align:center; padding: 10px; border-radius: 5px; text-decoration: none;">⬇️ Exporter (Backup complet)</a>
+                <p>Exportez la base locale et l'ensemble des images liées pour une sauvegarde complète en une fois.</p>
+                <a href="http://localhost:3000/api/export" class="export-btn">⬇️ Exporter (Backup complet)</a>
             </div>
         </aside>
 
@@ -46,9 +46,9 @@
         <section class="content">
             <h2 id="current-entity-title">Sélectionnez une entité</h2>
             
-            <div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center;">
-                <button id="btn-add-new" style="display:none;" onclick="showAddForm()">Ajouter</button>
-                <input type="text" id="admin-search-input" style="display:none; padding: 8px; flex-grow: 1; border-radius: 4px; border: 1px solid #ccc;" placeholder="Rechercher... (Nom, Description, etc.)" oninput="filterAdminTable()">
+            <div class="controls-bar">
+                <button id="btn-add-new" class="btn btn-success" onclick="showAddForm()">Ajouter</button>
+                <input type="text" id="admin-search-input" placeholder="Rechercher... (Nom, Description, etc.)" oninput="filterAdminTable()">
             </div>
 
             <!-- Table of existing entities -->
@@ -60,35 +60,39 @@
             </div>
 
             <!-- Form Template (Dynamically Filled) -->
-            <div id="form-container" style="display: none;">
+            <div id="form-container">
                 <h3 id="form-title">Créer / Modifier</h3>
                 <form id="entity-form">
                     <div id="form-fields"></div>
-                    <button type="submit">Sauvegarder</button>
-                    <button type="button" onclick="cancelForm()">Annuler</button>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success">Sauvegarder</button>
+                        <button type="button" class="btn btn-secondary" onclick="cancelForm()">Annuler</button>
+                    </div>
                 </form>
 
                 <hr>
                 
                 <!-- Relationship Link Manager -->
-                <div id="links-manager-container" style="display:none;">
+                <div id="links-manager-container">
                     <h4>Liens pour cette entité</h4>
-                    <form id="add-link-form" style="margin-bottom: 20px;">
-                        <div>
+                    <form id="add-link-form">
+                        <div class="link-form-inputs">
                             <select id="link-target-type" onchange="loadLinkTargets()"></select>
-                            <span> avec </span>
+                            <span class="link-form-text"> avec </span>
                             <select id="link-target-id"></select>
                             <input type="text" id="link-description" placeholder="Description courte (ex: commanditaire)">
                         </div>
-                        <div id="link-date-fields" style="display: none; margin-top: 10px; padding: 10px; background: #eee; border-radius: 5px;">
+                        <div id="link-date-fields">
                             <label>Dates du lien (optionnelles) :</label>
-                            <input type="date" id="link-date-debut" title="Date début">
-                            <select id="link-precision-debut"><option value="Jour">Jour</option><option value="Mois">Mois</option><option value="Année">Année</option></select>
-                            <span> à </span>
-                            <input type="date" id="link-date-fin" title="Date fin">
-                            <select id="link-precision-fin"><option value="Jour">Jour</option><option value="Mois">Mois</option><option value="Année">Année</option></select>
+                            <div class="link-dates-grid">
+                                <input type="date" id="link-date-debut" title="Date début">
+                                <select id="link-precision-debut"><option value="Jour">Jour</option><option value="Mois">Mois</option><option value="Année">Année</option></select>
+                                <span class="link-form-text"> à </span>
+                                <input type="date" id="link-date-fin" title="Date fin">
+                                <select id="link-precision-fin"><option value="Jour">Jour</option><option value="Mois">Mois</option><option value="Année">Année</option></select>
+                            </div>
                         </div>
-                        <button type="button" onclick="addLink()" style="margin-top: 10px;">Enregistrer le Lien</button>
+                        <button type="button" class="btn btn-info" onclick="addLink()">Enregistrer le Lien</button>
                     </form>
                     <ul id="existing-links-list"></ul>
                 </div>

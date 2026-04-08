@@ -56,7 +56,7 @@ async function fetchEntityWithRelations(entityType) {
                 
                 // Attach badge array strings
                 e._personnages = linkedP.map(p => `<span class="badge" title="Personnage lié">${p}</span>`).join('');
-                e._lieux = linkedL.map(l => `<span class="badge" style="background:#28a745" title="Lieu lié">${l}</span>`).join('');
+                e._lieux = linkedL.map(l => `<span class="badge" style="background:#D0FFAD" title="Lieu lié">${l}</span>`).join('');
                 
                 return e;
             });

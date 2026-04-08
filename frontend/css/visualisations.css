@@ -1,0 +1,561 @@
+/* ========================================
+   STYLES VISUALISATIONS - SECTIONS & COMPOSANTS
+   ======================================== */
+
+/* ========================================
+   NAVIGATION VISUALISATIONS
+   ======================================== */
+
+.vis-nav {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-xl);
+  flex-wrap: wrap;
+  padding-bottom: var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.vis-nav button {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.vis-nav button:hover {
+  background-color: var(--color-bg-tertiary);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.vis-nav button.active {
+  background-color: var(--color-accent);
+  color: white;
+  border-color: var(--color-accent);
+}
+
+/* ========================================
+   SECTIONS VISUALISATIONS
+   ======================================== */
+
+.vis-section {
+  display: none;
+}
+
+.vis-section.active {
+  display: block;
+  animation: slideIn var(--transition-slow);
+}
+
+.vis-section h2 {
+  margin-top: 0;
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 2px solid var(--color-border-light);
+}
+
+/* ========================================
+   FILTRES & CONTRÔLES
+   ======================================== */
+
+.filters-container {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: var(--font-size-xs);
+}
+
+.filters-container label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin: 0;
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.filters-container input[type="checkbox"] {
+  width: auto;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.filters-container select,
+.filters-container input[type="text"] {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  background-color: var(--color-bg-primary);
+  height: 28px;
+}
+
+.filters-container input[type="text"] {
+  flex: 1;
+  min-width: 150px;
+}
+
+.filters-container button {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background-color: var(--color-accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  height: 28px;
+}
+
+.filters-container button:hover {
+  background-color: var(--color-accent-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Variante de filtre pour les liens */
+.vis-link-filters {
+  background-color: rgba(37, 99, 235, 0.05) !important;
+  border-color: rgba(37, 99, 235, 0.1) !important;
+  display: flex;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+  padding: var(--spacing-xs) var(--spacing-sm) !important;
+  margin: 0 0 var(--spacing-sm) 0 !important;
+  border-radius: var(--radius-md) !important;
+  align-items: center;
+  font-size: var(--font-size-xs);
+}
+
+.vis-link-filters select,
+.vis-link-filters input[type="date"],
+.vis-link-filters input[type="text"] {
+  padding: var(--spacing-xs) var(--spacing-sm) !important;
+  font-size: var(--font-size-xs);
+  height: 28px;
+}
+
+.vis-link-filters button {
+  padding: var(--spacing-xs) var(--spacing-sm) !important;
+  font-size: var(--font-size-xs);
+  height: 28px;
+}
+
+.vis-link-filters .badge {
+  margin: 0 !important;
+  display: inline-block;
+}
+
+/* ========================================
+   CONTENEURS VISUALISATIONS
+   ======================================== */
+
+#data-table {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+  margin-bottom: var(--spacing-xl);
+}
+
+#sequential-container,
+#map-container,
+#network-container {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-primary);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+
+#timeline-container {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-primary);
+  box-shadow: var(--shadow-xs);
+  overflow: visible;
+}
+
+/* ========================================
+   CUSTOM TOOLTIP
+   ======================================== */
+
+#custom-tooltip {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  max-width: 350px;
+  pointer-events: none;
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  animation: slideIn var(--transition-fast);
+}
+
+#custom-tooltip h4 {
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+}
+
+#custom-tooltip .tt-dates {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--spacing-md);
+  font-style: italic;
+}
+
+#custom-tooltip .tt-desc {
+  margin-bottom: var(--spacing-md);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+#custom-tooltip .tt-links {
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border-light);
+}
+
+#custom-tooltip .tt-links ul {
+  margin: var(--spacing-sm) 0 0 var(--spacing-lg);
+  padding: 0;
+  list-style: disc;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+#custom-tooltip .tt-links li {
+  margin-bottom: var(--spacing-xs);
+}
+
+/* ========================================
+   FRISE SÉQUENTIELLE
+   ======================================== */
+
+#sequential-container {
+  display: flex;
+  overflow-x: auto;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  min-height: 300px;
+  align-items: center;
+  scroll-behavior: smooth;
+  background-color: var(--color-bg-primary);
+}
+
+/* Scrollbar styling for sequential container */
+#sequential-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+#sequential-container::-webkit-scrollbar-track {
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+#sequential-container::-webkit-scrollbar-thumb {
+  background-color: var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+#sequential-container::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-accent);
+}
+
+.seq-item {
+  flex: 0 0 auto;
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--color-border);
+  min-width: 180px;
+  max-width: 280px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background-color: var(--color-bg-primary);
+  box-shadow: var(--shadow-xs);
+}
+
+.seq-item:hover {
+  transform: translateY(-8px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-accent);
+}
+
+.seq-item-event {
+  background-color: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.seq-item-event:hover {
+  background-color: #bfdbfe;
+}
+
+.seq-item-person {
+  background-color: #fef08a;
+  border-color: #fde047;
+}
+
+.seq-item-person:hover {
+  background-color: #fef3c7;
+}
+
+.seq-item-politics {
+  background-color: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.seq-item-politics:hover {
+  background-color: #fecaca;
+}
+
+.seq-date {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--spacing-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.seq-title {
+  font-weight: var(--font-weight-semibold);
+  text-wrap: wrap;
+  color: var(--color-text-primary);
+  line-height: 1.4;
+}
+
+.seq-arrow {
+  flex: 0 0 auto;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-2xl);
+  opacity: 0.5;
+}
+
+/* ========================================
+   TIMELINE VIS.JS
+   ======================================== */
+
+#timeline-container {
+  height: 600px;
+  background-color: var(--color-bg-primary);
+}
+
+/* Override Vis.js timeline styles */
+.vis-timeline {
+  border: none;
+  background-color: var(--color-bg-primary);
+  border-radius: var(--radius-md);
+}
+
+.vis-panel {
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.vis-data-axis .vis-grid.vis-zero {
+  border-color: var(--color-accent);
+}
+
+.vis-item {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent-hover);
+  color: white;
+}
+
+.vis-item.vis-selected {
+  background-color: var(--color-accent-hover);
+  box-shadow: inset 0 0 1px rgba(0, 0, 0, 0.1), var(--shadow-sm);
+}
+
+/* ========================================
+   CARTE LEAFLET
+   ======================================== */
+
+#map-container {
+  height: 600px;
+  z-index: 1;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.leaflet-container {
+  background-color: var(--color-bg-primary);
+  border-radius: var(--radius-md);
+}
+
+.leaflet-control {
+  border-radius: var(--radius-md);
+}
+
+.leaflet-control-zoom {
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+  background-color: var(--color-bg-primary) !important;
+  color: var(--color-text-primary) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+}
+
+.leaflet-control-zoom-in:hover,
+.leaflet-control-zoom-out:hover {
+  background-color: var(--color-bg-secondary) !important;
+}
+
+/* Popup styles */
+.leaflet-popup-content-wrapper {
+  background-color: var(--color-bg-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border);
+}
+
+.leaflet-popup-content {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.leaflet-popup-tip {
+  background-color: var(--color-bg-primary);
+  border-color: var(--color-border);
+}
+
+/* ========================================
+   RÉSEAU VIS.JS
+   ======================================== */
+
+#network-container {
+  height: 700px;
+  background: linear-gradient(135deg, var(--color-bg-primary) 0%, var(--color-bg-secondary) 100%);
+}
+
+.vis-network {
+  background: inherit;
+  border-radius: var(--radius-md);
+}
+
+/* ========================================
+   RESPONSIVE - VISUALISATIONS
+   ======================================== */
+
+@media (max-width: 768px) {
+  .vis-nav {
+    gap: var(--spacing-sm);
+  }
+  
+  .vis-nav button {
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-sm);
+  }
+  
+  .filters-container {
+    padding: var(--spacing-md);
+    gap: var(--spacing-sm);
+  }
+  
+  .filters-container label {
+    flex: 0 1 auto;
+  }
+  
+  .filters-container input[type="text"] {
+    min-width: 150px;
+  }
+  
+  #custom-tooltip {
+    max-width: 280px;
+    font-size: var(--font-size-xs);
+    padding: var(--spacing-md);
+  }
+  
+  #timeline-container {
+    height: 400px;
+  }
+  
+  #sequential-container {
+    min-height: 250px;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+  }
+  
+  .seq-item {
+    min-width: 150px;
+    max-width: 220px;
+    padding: var(--spacing-md);
+  }
+  
+  #map-container {
+    height: 400px;
+  }
+  
+  #network-container {
+    height: 500px;
+  }
+}
+
+@media (max-width: 480px) {
+  .vis-nav {
+    flex-direction: column;
+  }
+  
+  .vis-nav button {
+    width: 100%;
+    text-align: center;
+  }
+  
+  .filters-container {
+    flex-direction: column;
+  }
+  
+  .filters-container label,
+  .filters-container select,
+  .filters-container input[type="text"],
+  .filters-container button {
+    width: 100%;
+  }
+  
+  .filters-container button {
+    white-space: normal;
+  }
+  
+  #sequential-container {
+    min-height: 220px;
+  }
+  
+  .seq-item {
+    min-width: 120px;
+    max-width: 180px;
+  }
+  
+  #timeline-container {
+    height: 300px;
+  }
+  
+  #map-container {
+    height: 300px;
+  }
+  
+  #network-container {
+    height: 350px;
+  }
+}

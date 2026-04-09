@@ -21,22 +21,28 @@ function isValid(entity) {
 
 // Map tables to automatically clean their link tables (pseudo CASCADE DELETE)
 const relationMap = {
-    'Evenement': ['Lien_image_evenement', 'Lien_evenement_personnage', 'Lien_evenement_lieux', 'Lien_evenement_tags', 'Lien_evenement_sources'],
-    'Personnages': ['Lien_image_personnage', 'Lien_evenement_personnage', 'Lien_personnage_fonctions', 'Lien_personnage_lieux', 'Lien_personnage_sources', 'Lien_personnage_personnage', 'Lien_personnage_entite_politique'],
+    'Evenement': ['Lien_image_evenement', 'Lien_evenement_personnage', 'Lien_evenement_lieux', 'Lien_evenement_tags', 'Lien_evenement_sources', 'Lien_evenement_evenement'],
+    'Personnages': ['Lien_image_personnage', 'Lien_evenement_personnage', 'Lien_personnage_fonctions', 'Lien_personnage_lieux', 'Lien_personnage_sources', 'Lien_personnage_personnage', 'Lien_personnage_entite_politique', 'Lien_personnage_tags'],
     'Lieu': ['Lien_image_lieu', 'Lien_evenement_lieux', 'Lien_personnage_lieux', 'Lien_lieu_entite_politique'],
-    'Entite_politique': ['Lien_image_entite_politique', 'Lien_lieu_entite_politique', 'Lien_personnage_entite_politique'],
-    'Fonctions': ['Lien_image_fonctions', 'Lien_personnage_fonctions'],
-    'Tags': ['Lien_image_tags', 'Lien_evenement_tags'],
+    'Entite_politique': ['Lien_image_entite_politique', 'Lien_lieu_entite_politique', 'Lien_personnage_entite_politique', 'Lien_fonctions_entite_politique', 'Lien_entite_politique_tags'],
+    'Fonctions': ['Lien_image_fonctions', 'Lien_personnage_fonctions', 'Lien_fonctions_entite_politique'],
+    'Tags': ['Lien_image_tags', 'Lien_evenement_tags', 'Lien_personnage_tags', 'Lien_entite_politique_tags'],
     'Source': ['Lien_image_source', 'Lien_evenement_sources', 'Lien_personnage_sources'],
     'Image': ['Lien_image_evenement', 'Lien_image_personnage', 'Lien_image_fonctions', 'Lien_image_tags', 'Lien_image_lieu', 'Lien_image_entite_politique', 'Lien_image_source']
+};
+
+const symmetricLinkTables = {
+    'Lien_personnage_personnage': ['ID_personnage_A', 'ID_personnage_B'],
+    'Lien_evenement_evenement': ['ID_evenement_A', 'ID_evenement_B']
 };
 
 function cleanupRelations(entity, id) {
     if (!relationMap[entity]) return;
     relationMap[entity].forEach(relTable => {
         try {
-            if (relTable === 'Lien_personnage_personnage') {
-                db.prepare(`DELETE FROM ${relTable} WHERE ID_personnage_A = ? OR ID_personnage_B = ?`).run(id, id);
+            if (symmetricLinkTables[relTable]) {
+                const [colA, colB] = symmetricLinkTables[relTable];
+                db.prepare(`DELETE FROM ${relTable} WHERE ${colA} = ? OR ${colB} = ?`).run(id, id);
             } else {
                 const cols = db.pragma(`table_info(${relTable})`);
                 const idCols = cols.filter(c => c.name.toLowerCase().includes(entity.toLowerCase()) && c.name.startsWith('ID_'));

@@ -204,3 +204,43 @@ CREATE TABLE Lien_personnage_entite_politique (
                 FOREIGN KEY(ID_entite_politique) REFERENCES Entite_politique(ID),
                 PRIMARY KEY (ID_personnage, ID_entite_politique)
             );
+
+CREATE TABLE Lien_evenement_evenement (
+                ID_evenement_A INTEGER,
+                ID_evenement_B INTEGER,
+                description TEXT,
+                FOREIGN KEY(ID_evenement_A) REFERENCES Evenement(ID),
+                FOREIGN KEY(ID_evenement_B) REFERENCES Evenement(ID),
+                PRIMARY KEY (ID_evenement_A, ID_evenement_B)
+            );
+
+CREATE TABLE Lien_fonctions_entite_politique (
+                ID_fonctions INTEGER,
+                ID_entite_politique INTEGER,
+                Date_Debut TEXT,
+                precision_Debut TEXT,
+                Date_Fin TEXT,
+                precision_Fin TEXT,
+                description TEXT,
+                FOREIGN KEY(ID_fonctions) REFERENCES Fonctions(ID),
+                FOREIGN KEY(ID_entite_politique) REFERENCES Entite_politique(ID),
+                PRIMARY KEY (ID_fonctions, ID_entite_politique)
+            );
+
+CREATE TABLE Lien_personnage_tags (
+                ID_personnage INTEGER,
+                ID_tags INTEGER,
+                description TEXT,
+                FOREIGN KEY(ID_personnage) REFERENCES Personnages(ID),
+                FOREIGN KEY(ID_tags) REFERENCES Tags(ID),
+                PRIMARY KEY (ID_personnage, ID_tags)
+            );
+
+CREATE TABLE Lien_entite_politique_tags (
+                ID_entite_politique INTEGER,
+                ID_tags INTEGER,
+                description TEXT,
+                FOREIGN KEY(ID_entite_politique) REFERENCES Entite_politique(ID),
+                FOREIGN KEY(ID_tags) REFERENCES Tags(ID),
+                PRIMARY KEY (ID_entite_politique, ID_tags)
+            );

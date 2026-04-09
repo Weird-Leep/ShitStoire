@@ -8,7 +8,7 @@ const linkTables = [
     'Lien_image_tags', 'Lien_image_lieu', 'Lien_image_entite_politique', 'Lien_image_source',
     'Lien_evenement_personnage', 'Lien_evenement_lieux', 'Lien_evenement_tags', 'Lien_evenement_sources',
     'Lien_personnage_fonctions', 'Lien_personnage_lieux', 'Lien_personnage_sources', 'Lien_personnage_personnage',
-    'Lien_lieu_entite_politique', 'Lien_personnage_entite_politique'
+    'Lien_lieu_entite_politique', 'Lien_personnage_entite_politique', 'Lien_evenement_evenement', 'Lien_fonctions_entite_politique', 'Lien_personnage_tags', 'Lien_entite_politique_tags'
 ];
 
 function isLinkValid(table) { return linkTables.includes(table); }
@@ -25,6 +25,23 @@ router.get('/:table', (req, res) => {
 router.post('/:table', (req, res) => {
     if(!isLinkValid(req.params.table)) return res.status(400).send();
     try {
+        if (req.params.table === 'Lien_evenement_evenement') {
+            const firstId = Number(req.body.ID_evenement_A);
+            const secondId = Number(req.body.ID_evenement_B);
+
+            if (!firstId || !secondId) {
+                return res.status(400).json({error: 'Identifiers missing'});
+            }
+            if (firstId === secondId) {
+                return res.status(400).json({error: 'Self links are not allowed'});
+            }
+
+            if (firstId > secondId) {
+                req.body.ID_evenement_A = secondId;
+                req.body.ID_evenement_B = firstId;
+            }
+        }
+
         const fields = Object.keys(req.body);
         const values = Object.values(req.body);
         const qs = fields.map(() => '?').join(', ');

@@ -104,6 +104,15 @@ async function loadNetworkData() {
         }));
     }
 
+    if (sEv) {
+        const evEv = await fetchJSON('/links/Lien_evenement_evenement');
+        evEv.forEach(rel => edgesArr.push({
+            from: `ev_${rel.ID_evenement_A}`,
+            to: `ev_${rel.ID_evenement_B}`,
+            label: rel.description || ''
+        }));
+    }
+
     // Example 2: Evènement <-> Lieux
     if (sEv && sLi) {
         const evLi = await fetchJSON('/links/Lien_evenement_lieux');

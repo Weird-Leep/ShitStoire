@@ -319,6 +319,12 @@ function getDisplayField(entityName) {
 const relationMapClient = {
   Evenement: [
     {
+      target: "Evenement",
+      table: "Lien_evenement_evenement",
+      fkSrc: "ID_evenement_A",
+      fkDest: "ID_evenement_B",
+    },
+    {
       target: "Personnages",
       table: "Lien_evenement_personnage",
       fkSrc: "ID_evenement",
@@ -369,6 +375,12 @@ const relationMapClient = {
       fkDest: "ID_entite_politique",
     },
     {
+      target: "Tags",
+      table: "Lien_personnage_tags",
+      fkSrc: "ID_personnage",
+      fkDest: "ID_tags",
+    },
+    {
       target: "Personnages",
       table: "Lien_personnage_personnage",
       fkSrc: "ID_personnage_A",
@@ -380,6 +392,42 @@ const relationMapClient = {
       target: "Entite_politique",
       table: "Lien_lieu_entite_politique",
       fkSrc: "ID_lieu",
+      fkDest: "ID_entite_politique",
+    },
+  ],
+  Fonctions: [
+    {
+      target: "Entite_politique",
+      table: "Lien_fonctions_entite_politique",
+      fkSrc: "ID_fonctions",
+      fkDest: "ID_entite_politique",
+    },
+  ],
+  Entite_politique: [
+    {
+      target: "Fonctions",
+      table: "Lien_fonctions_entite_politique",
+      fkSrc: "ID_entite_politique",
+      fkDest: "ID_fonctions",
+    },
+    {
+      target: "Tags",
+      table: "Lien_entite_politique_tags",
+      fkSrc: "ID_entite_politique",
+      fkDest: "ID_tags",
+    },
+  ],
+  Tags: [
+    {
+      target: "Personnages",
+      table: "Lien_personnage_tags",
+      fkSrc: "ID_tags",
+      fkDest: "ID_personnage",
+    },
+    {
+      target: "Entite_politique",
+      table: "Lien_entite_politique_tags",
+      fkSrc: "ID_tags",
       fkDest: "ID_entite_politique",
     },
   ],
@@ -452,15 +500,22 @@ async function loadLinkTargets() {
     return;
   }
 
-  const rel = relationMapClient[currentEntity].find(
+  const currentRelations = relationMapClient[currentEntity] || [];
+  const rel = currentRelations.find(
     (r) => r.target === targetType,
   );
+
+  if (!rel) {
+    if (dateFields) dateFields.style.display = "none";
+    return;
+  }
 
   // Check if relation table supports dates
   const tablesWithDates = [
     "Lien_personnage_fonctions",
     "Lien_personnage_lieux",
     "Lien_lieu_entite_politique",
+    "Lien_fonctions_entite_politique",
   ];
   if (tablesWithDates.includes(rel.table) && dateFields) {
     dateFields.style.display = "block";
@@ -469,7 +524,11 @@ async function loadLinkTargets() {
   }
 
   const res = await fetch(`${API}/entities/${targetType}`);
-  const data = await res.json();
+  let data = await res.json();
+
+  if (rel.table === "Lien_evenement_evenement" && editingId) {
+    data = data.filter((d) => String(d.ID) !== String(editingId));
+  }
 
   const displayF = getDisplayField(targetType);
   selectId.innerHTML =
@@ -495,13 +554,20 @@ async function addLink() {
 
   if (!targetType || !targetId) return alert("Veuillez sélectionner qui lier.");
 
-  const rel = relationMapClient[currentEntity].find(
+  const currentRelations = relationMapClient[currentEntity] || [];
+  const rel = currentRelations.find(
     (r) => r.target === targetType,
   );
+  if (!rel) return;
+
+  if (rel.table === "Lien_evenement_evenement" && String(editingId) === String(targetId)) {
+    return alert("Un évènement ne peut pas être lié à lui-même.");
+  }
   const tablesWithDates = [
     "Lien_personnage_fonctions",
     "Lien_personnage_lieux",
     "Lien_lieu_entite_politique",
+    "Lien_fonctions_entite_politique",
   ];
 
   const payload = {};

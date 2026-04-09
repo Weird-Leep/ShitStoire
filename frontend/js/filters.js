@@ -50,8 +50,10 @@ async function initFilters() {
     // 1. Fetch all link tables
     const linkTables = [
         'Lien_evenement_personnage', 'Lien_evenement_lieux', 'Lien_evenement_tags', 'Lien_evenement_sources',
+        'Lien_evenement_evenement',
         'Lien_personnage_fonctions', 'Lien_personnage_lieux', 'Lien_personnage_sources', 'Lien_personnage_personnage',
-        'Lien_personnage_entite_politique', 'Lien_lieu_entite_politique',
+        'Lien_personnage_entite_politique', 'Lien_personnage_tags',
+        'Lien_lieu_entite_politique', 'Lien_fonctions_entite_politique', 'Lien_entite_politique_tags',
         'Lien_image_evenement', 'Lien_image_personnage', 'Lien_image_fonctions', 'Lien_image_tags', 'Lien_image_lieu', 'Lien_image_entite_politique', 'Lien_image_source'
     ];
     
@@ -215,6 +217,9 @@ function filterEntities(entities, entityType) {
                     if (tableName === 'Lien_personnage_personnage' && entityType === 'Personnages' && filterType === 'Personnages') {
                         // Internal link
                         linked = rows.some(r => (r.ID_personnage_A == ent.ID && r.ID_personnage_B == filterId) || (r.ID_personnage_B == ent.ID && r.ID_personnage_A == filterId));
+                        if(linked) break;
+                    } else if (tableName === 'Lien_evenement_evenement' && entityType === 'Evenement' && filterType === 'Evenement') {
+                        linked = rows.some(r => (r.ID_evenement_A == ent.ID && r.ID_evenement_B == filterId) || (r.ID_evenement_B == ent.ID && r.ID_evenement_A == filterId));
                         if(linked) break;
                     } else if (ce && cf && ce !== cf) {
                         linked = rows.some(r => r[ce] == ent.ID && r[cf] == filterId);

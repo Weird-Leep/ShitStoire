@@ -35,6 +35,7 @@ window.TooltipManager = {
         // Fetch all link tables and entities needed to build tooltips
         const endpoints = {
             'Lien_evenement_personnage': fetch('/api/links/Lien_evenement_personnage').then(r=>r.json()),
+            'Lien_evenement_evenement': fetch('/api/links/Lien_evenement_evenement').then(r=>r.json()),
             'Lien_evenement_lieux': fetch('/api/links/Lien_evenement_lieux').then(r=>r.json()),
             'Lien_personnage_lieux': fetch('/api/links/Lien_personnage_lieux').then(r=>r.json()),
             'Lien_personnage_entite_politique': fetch('/api/links/Lien_personnage_entite_politique').then(r=>r.json()),
@@ -57,6 +58,7 @@ window.TooltipManager = {
 
         this.data.links = {
             ev_pe: results['Lien_evenement_personnage'],
+            ev_ev: results['Lien_evenement_evenement'],
             ev_lieu: results['Lien_evenement_lieux'],
             pe_lieu: results['Lien_personnage_lieux'],
             pe_ep: results['Lien_personnage_entite_politique'],
@@ -78,6 +80,9 @@ window.TooltipManager = {
         if (type === 'ev') {
             const pa_ids = this.data.links.ev_pe?.filter(l => l.ID_evenement == id).map(l => l.ID_personnage) || [];
             pa_ids.forEach(pid => this.data.entities.pe[pid] && connected.push(`Personnage : ${this.data.entities.pe[pid].Nom}`));
+
+            const ev_ids = this.data.links.ev_ev?.filter(l => l.ID_evenement_A == id || l.ID_evenement_B == id).map(l => l.ID_evenement_A == id ? l.ID_evenement_B : l.ID_evenement_A) || [];
+            ev_ids.forEach(eid => this.data.entities.ev[eid] && connected.push(`Évènement lié : ${this.data.entities.ev[eid].titre}`));
             
             const li_ids = this.data.links.ev_lieu?.filter(l => l.ID_evenement == id).map(l => l.ID_lieu) || [];
             li_ids.forEach(lid => this.data.entities.lieu[lid] && connected.push(`Lieu : ${this.data.entities.lieu[lid].Nom}`));

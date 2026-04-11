@@ -4,6 +4,27 @@ let currentRows = [];
 let cachedLinkData = {}; // Cache the link data for filtering
 let editingId = null;
 
+async function ensureAdminSession() {
+  try {
+    const res = await fetch(`${API}/admin/me`);
+    if (res.ok) return true;
+  } catch (e) {}
+
+  const next = encodeURIComponent(window.location.pathname || "/admin.html");
+  window.location.replace(`/admin-login.html?next=${next}`);
+  return false;
+}
+
+async function logoutAdmin() {
+  try {
+    await fetch(`${API}/admin/logout`, { method: "POST" });
+  } catch (e) {}
+
+  window.location.replace("/admin-login.html");
+}
+
+window.logoutAdmin = logoutAdmin;
+
 function initSelect2Admin(scope = document) {
   if (!window.jQuery || !window.jQuery.fn || !window.jQuery.fn.select2) return;
 
@@ -543,8 +564,63 @@ async function loadLinkTargets() {
   initSelect2Admin();
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+function setImportStatus(message, isError = false) {
+  const statusEl = document.getElementById("import-backup-status");
+  if (!statusEl) return;
+  statusEl.style.color = isError ? "#b00020" : "#0b6b1f";
+  statusEl.textContent = message;
+}
+
+async function handleBackupImport(event) {
+  event.preventDefault();
+
+  const fileInput = document.getElementById("import-backup-file");
+  if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+    setImportStatus("Veuillez sélectionner un fichier ZIP.", true);
+    return;
+  }
+
+  const confirmed = confirm(
+    "Importer un backup remplacera la base courante et potentiellement les images. Continuer ?",
+  );
+  if (!confirmed) return;
+
+  setImportStatus("Import en cours...");
+
+  const fd = new FormData();
+  fd.append("backupZip", fileInput.files[0]);
+
+  try {
+    const res = await fetch(`${API}/import`, {
+      method: "POST",
+      body: fd,
+    });
+
+    const payload = await res.json();
+    if (!res.ok || payload.error) {
+      throw new Error(payload.error || "Import impossible");
+    }
+
+    setImportStatus("Import terminé. Les données ont été restaurées.");
+    if (currentEntity) {
+      await loadEntity(currentEntity);
+    }
+    fileInput.value = "";
+  } catch (err) {
+    setImportStatus(`Échec de l'import : ${err.message}`, true);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  const isAuthorized = await ensureAdminSession();
+  if (!isAuthorized) return;
+
   initSelect2Admin();
+
+  const importForm = document.getElementById("import-backup-form");
+  if (importForm) {
+    importForm.addEventListener("submit", handleBackupImport);
+  }
 });
 
 async function addLink() {

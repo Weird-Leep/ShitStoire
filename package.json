@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "admin:hash": "node backend/generate_admin_hash.js"
   },
   "repository": {
     "type": "git",
@@ -19,6 +20,7 @@
   },
   "homepage": "https://github.com/Weird-Leep/ShitStoire#readme",
   "dependencies": {
+    "adm-zip": "^0.5.17",
     "archiver": "^7.0.1",
     "better-sqlite3": "^12.8.0",
     "cors": "^2.8.6",

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShitStoire - Connexion Admin</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/theme-retrowave.css">
+    <style>
+        body {
+            min-height: 100vh;
+            margin: 0;
+            display: grid;
+            place-items: center;
+            background: radial-gradient(circle at 20% 20%, rgba(0, 196, 255, 0.2), transparent 40%),
+                        radial-gradient(circle at 80% 80%, rgba(255, 76, 131, 0.2), transparent 40%),
+                        #0d0221;
+            color: #f4f4f8;
+            font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        }
+
+        .login-card {
+            width: min(92vw, 420px);
+            padding: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 14px;
+            background: rgba(8, 8, 20, 0.84);
+            box-shadow: 0 24px 54px rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(4px);
+        }
+
+        h1 {
+            margin: 0 0 20px;
+            font-size: 26px;
+            letter-spacing: 0.04em;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            opacity: 0.85;
+        }
+
+        input {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 14px;
+            background: rgba(255, 255, 255, 0.07);
+            color: #ffffff;
+        }
+
+        button {
+            width: 100%;
+            border: 0;
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #08131f;
+            background: linear-gradient(90deg, #28d7ff, #7fffd6);
+        }
+
+        .status {
+            min-height: 22px;
+            margin-top: 12px;
+            font-size: 14px;
+        }
+
+        .error {
+            color: #ff8f8f;
+        }
+
+        .ok {
+            color: #90f9ad;
+        }
+    </style>
+</head>
+<body>
+    <main class="login-card">
+        <h1>Accès administration</h1>
+        <form id="admin-login-form">
+            <label for="admin-username">Identifiant</label>
+            <input id="admin-username" name="username" type="text" autocomplete="username" required>
+
+            <label for="admin-password">Mot de passe</label>
+            <input id="admin-password" name="password" type="password" autocomplete="current-password" required>
+
+            <button id="admin-login-submit" type="submit">Se connecter</button>
+        </form>
+        <p id="admin-login-status" class="status"></p>
+    </main>
+
+    <script src="js/admin-login.js"></script>
+</body>
+</html>

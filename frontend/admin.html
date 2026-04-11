@@ -17,6 +17,7 @@
                 <li><a href="index.html">Accueil</a></li>
                 <li><a href="visualisations.html">Visualisations</a></li>
                 <li><a href="admin.html" class="active">Administration</a></li>
+                <li><button type="button" onclick="logoutAdmin()" style="background:#c43a3a;color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;">Se déconnecter</button></li>
             </ul>
         </nav>
     </header>
@@ -40,6 +41,11 @@
                 <h4>Restauration & Backup</h4>
                 <p style="font-size: 12px; color: gray;">Exportez la base locale et l'ensemble des images liées pour une sauvegarde complète en une fois.</p>
                 <a href="/api/export" class="export-btn" style="display:block; background:#007bff; color:white; text-align:center; padding: 10px; border-radius: 5px; text-decoration: none;">⬇️ Exporter (Backup complet)</a>
+                <form id="import-backup-form" style="margin-top: 10px;">
+                    <input type="file" id="import-backup-file" accept=".zip" required style="display:block; width: 100%; margin-bottom: 8px;">
+                    <button type="submit" style="display:block; width: 100%;">⬆️ Importer un backup ZIP</button>
+                </form>
+                <p id="import-backup-status" style="font-size: 12px; margin-top: 8px;"></p>
             </div>
         </aside>
 

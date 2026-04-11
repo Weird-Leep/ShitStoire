@@ -14,7 +14,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use('/api/admin', adminRouter);
 
-app.get('/admin.html', requireAdmin, (req, res) => {
+app.get('/admin.html', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/admin.html'));
 });
 

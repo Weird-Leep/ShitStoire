@@ -91,7 +91,7 @@ const schemas = {
     { name: "titre", label: "Titre", type: "text" },
     {
       name: "Coordonne",
-      label: "Coordonnées (GPS format Libre)",
+      label: "Coordonnées (GPS format : Latitude,Longitude)",
       type: "text",
     },
     { name: "description", label: "Description", type: "textarea" },
@@ -498,6 +498,11 @@ const relationMapClient = {
   ],
 };
 
+const symmetricLinkTablesClient = new Set([
+  "Lien_evenement_evenement",
+  "Lien_personnage_personnage",
+]);
+
 function populateLinkTargetTypes() {
   const select = document.getElementById("link-target-type");
   const relations = relationMapClient[currentEntity] || [];
@@ -663,13 +668,32 @@ async function addLink() {
     if (pFin) payload.precision_Fin = pFin;
   }
 
-  await fetch(`${API}/links/${rel.table}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  try {
+    const res = await fetch(`${API}/links/${rel.table}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
-  await loadExistingLinks();
+    let backendMessage = "Impossible d'enregistrer ce lien.";
+    const contentType = res.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      const body = await res.json();
+      if (body?.error) backendMessage = body.error;
+    } else {
+      const text = await res.text();
+      if (text) backendMessage = text;
+    }
+
+    if (!res.ok) {
+      throw new Error(backendMessage);
+    }
+
+    await loadExistingLinks();
+  } catch (err) {
+    alert(`Erreur lors de l'enregistrement du lien : ${err.message}`);
+  }
 }
 
 async function loadExistingLinks() {
@@ -689,15 +713,20 @@ async function loadExistingLinks() {
     const targetData = await resTargets.json();
     const displayF = getDisplayField(rel.target);
 
-    // Filter the ones that affect the CURRENT entity's ID
-    const activeLinks = links.filter(
-      (l) => l[rel.fkSrc] == editingId || l[rel.fkDest] == editingId,
+    // For directional tables, only keep links where current item is source.
+    // For symmetric tables, keep both sides.
+    const isSymmetric = symmetricLinkTablesClient.has(rel.table);
+    const activeLinks = links.filter((l) =>
+      isSymmetric
+        ? l[rel.fkSrc] == editingId || l[rel.fkDest] == editingId
+        : l[rel.fkSrc] == editingId,
     );
 
     if (activeLinks.length > 0) {
       for (let link of activeLinks) {
-        const isSrcMe = link[rel.fkSrc] == editingId;
-        const targetID = isSrcMe ? link[rel.fkDest] : link[rel.fkSrc];
+        const targetID = isSymmetric
+          ? (link[rel.fkSrc] == editingId ? link[rel.fkDest] : link[rel.fkSrc])
+          : link[rel.fkDest];
 
         const targetEntity = targetData.find((t) => t.ID == targetID);
         const targetName = targetEntity

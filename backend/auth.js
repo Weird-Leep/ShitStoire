@@ -5,6 +5,9 @@ const COOKIE_NAME = 'admin_session';
 const MAX_LOGIN_ATTEMPTS = 8;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const DEFAULT_TTL_HOURS = 24 * 7;
+const LOCAL_ADMIN_USERNAME = 'nom';
+const LOCAL_ADMIN_PASSWORD = 'mdp';
+const LOCAL_ADMIN_AUTH_SECRET = 'shitstoire-local-admin-secret';
 
 const attemptsByIp = new Map();
 
@@ -149,23 +152,36 @@ function clearFailedAttempts(req) {
 }
 
 function getAuthConfig() {
-    const username = process.env.ADMIN_USERNAME;
+    const username = process.env.ADMIN_IDENTIFIANT
+        || process.env.ADMIN_USERNAME
+        || LOCAL_ADMIN_USERNAME;
     const passwordHash = process.env.ADMIN_PASSWORD_HASH;
-    const authSecret = process.env.ADMIN_AUTH_SECRET;
+    const passwordPlain = process.env.ADMIN_CODE
+        || process.env.ADMIN_PASSWORD
+        || LOCAL_ADMIN_PASSWORD;
+    const authSecret = process.env.ADMIN_AUTH_SECRET
+        || LOCAL_ADMIN_AUTH_SECRET;
 
     const ttlHours = Number(process.env.ADMIN_SESSION_TTL_HOURS || DEFAULT_TTL_HOURS);
     const ttlSeconds = Number.isFinite(ttlHours) && ttlHours > 0
         ? Math.floor(ttlHours * 3600)
         : DEFAULT_TTL_HOURS * 3600;
 
-    const configured = Boolean(username && passwordHash && authSecret);
+    const configured = Boolean(username && authSecret && (passwordHash || passwordPlain));
 
     return {
         configured,
         username,
         passwordHash,
+        passwordPlain,
         authSecret,
         ttlSeconds,
+        isLocalFallback: !process.env.ADMIN_IDENTIFIANT
+            && !process.env.ADMIN_USERNAME
+            && !process.env.ADMIN_PASSWORD_HASH
+            && !process.env.ADMIN_CODE
+            && !process.env.ADMIN_PASSWORD
+            && !process.env.ADMIN_AUTH_SECRET,
     };
 }
 
@@ -204,7 +220,12 @@ adminRouter.get('/status', (req, res) => {
     const config = getAuthConfig();
     res.json({
         configured: config.configured,
-        requires: ['ADMIN_USERNAME', 'ADMIN_PASSWORD_HASH', 'ADMIN_AUTH_SECRET'],
+        requires: [
+            'ADMIN_IDENTIFIANT or ADMIN_USERNAME',
+            'ADMIN_CODE or ADMIN_PASSWORD or ADMIN_PASSWORD_HASH',
+            'ADMIN_AUTH_SECRET',
+        ],
+        localFallback: config.isLocalFallback,
     });
 });
 
@@ -229,7 +250,9 @@ adminRouter.post('/login', (req, res) => {
 
     const ok =
         username === config.username &&
-        verifyPassword(password, config.passwordHash);
+        (config.passwordHash
+            ? verifyPassword(password, config.passwordHash)
+            : password === config.passwordPlain);
 
     if (!ok) {
         markFailedAttempt(req);

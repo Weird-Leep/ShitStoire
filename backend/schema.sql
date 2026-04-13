@@ -140,6 +140,7 @@ CREATE TABLE Lien_evenement_sources (
             );
 
 CREATE TABLE Lien_personnage_fonctions (
+                ID INTEGER PRIMARY KEY AUTOINCREMENT,
                 ID_personnage INTEGER,
                 ID_fonctions INTEGER,
                 description TEXT,
@@ -148,11 +149,11 @@ CREATE TABLE Lien_personnage_fonctions (
                 Date_Fin TEXT,
                 precision_Fin TEXT,
                 FOREIGN KEY(ID_personnage) REFERENCES Personnages(ID),
-                FOREIGN KEY(ID_fonctions) REFERENCES Fonctions(ID),
-                PRIMARY KEY (ID_personnage, ID_fonctions)
+                FOREIGN KEY(ID_fonctions) REFERENCES Fonctions(ID)
             );
 
 CREATE TABLE Lien_personnage_lieux (
+                ID INTEGER PRIMARY KEY AUTOINCREMENT,
                 ID_personnage INTEGER,
                 ID_lieux INTEGER,
                 Date_Debut TEXT,
@@ -161,8 +162,7 @@ CREATE TABLE Lien_personnage_lieux (
                 precision_Fin TEXT,
                 description TEXT,
                 FOREIGN KEY(ID_personnage) REFERENCES Personnages(ID),
-                FOREIGN KEY(ID_lieux) REFERENCES Lieu(ID),
-                PRIMARY KEY (ID_personnage, ID_lieux)
+                FOREIGN KEY(ID_lieux) REFERENCES Lieu(ID)
             );
 
 CREATE TABLE Lien_personnage_sources (
@@ -184,6 +184,7 @@ CREATE TABLE Lien_personnage_personnage (
             );
 
 CREATE TABLE Lien_lieu_entite_politique (
+                ID INTEGER PRIMARY KEY AUTOINCREMENT,
                 ID_lieu INTEGER,
                 ID_entite_politique INTEGER,
                 Date_Debut TEXT,
@@ -192,8 +193,7 @@ CREATE TABLE Lien_lieu_entite_politique (
                 precision_Fin TEXT,
                 description TEXT,
                 FOREIGN KEY(ID_lieu) REFERENCES Lieu(ID),
-                FOREIGN KEY(ID_entite_politique) REFERENCES Entite_politique(ID),
-                PRIMARY KEY (ID_lieu, ID_entite_politique)
+                FOREIGN KEY(ID_entite_politique) REFERENCES Entite_politique(ID)
             );
 
 CREATE TABLE Lien_personnage_entite_politique (
@@ -215,6 +215,7 @@ CREATE TABLE Lien_evenement_evenement (
             );
 
 CREATE TABLE Lien_fonctions_entite_politique (
+                ID INTEGER PRIMARY KEY AUTOINCREMENT,
                 ID_fonctions INTEGER,
                 ID_entite_politique INTEGER,
                 Date_Debut TEXT,
@@ -223,8 +224,7 @@ CREATE TABLE Lien_fonctions_entite_politique (
                 precision_Fin TEXT,
                 description TEXT,
                 FOREIGN KEY(ID_fonctions) REFERENCES Fonctions(ID),
-                FOREIGN KEY(ID_entite_politique) REFERENCES Entite_politique(ID),
-                PRIMARY KEY (ID_fonctions, ID_entite_politique)
+                FOREIGN KEY(ID_entite_politique) REFERENCES Entite_politique(ID)
             );
 
 CREATE TABLE Lien_personnage_tags (
@@ -243,4 +243,53 @@ CREATE TABLE Lien_entite_politique_tags (
                 FOREIGN KEY(ID_entite_politique) REFERENCES Entite_politique(ID),
                 FOREIGN KEY(ID_tags) REFERENCES Tags(ID),
                 PRIMARY KEY (ID_entite_politique, ID_tags)
+            );
+
+CREATE TABLE Lien_lieu_sources (
+                ID_lieu INTEGER,
+                ID_sources INTEGER,
+                description TEXT,
+                FOREIGN KEY(ID_lieu) REFERENCES Lieu(ID),
+                FOREIGN KEY(ID_sources) REFERENCES Source(ID),
+                PRIMARY KEY (ID_lieu, ID_sources)
+            );
+
+CREATE TABLE Lien_entite_politique_sources (
+                ID_entite_politique INTEGER,
+                ID_sources INTEGER,
+                description TEXT,
+                FOREIGN KEY(ID_entite_politique) REFERENCES Entite_politique(ID),
+                FOREIGN KEY(ID_sources) REFERENCES Source(ID),
+                PRIMARY KEY (ID_entite_politique, ID_sources)
+            );
+
+CREATE TABLE Lien_fonctions_sources (
+                ID_fonctions INTEGER,
+                ID_sources INTEGER,
+                description TEXT,
+                FOREIGN KEY(ID_fonctions) REFERENCES Fonctions(ID),
+                FOREIGN KEY(ID_sources) REFERENCES Source(ID),
+                PRIMARY KEY (ID_fonctions, ID_sources)
+            );
+
+CREATE TABLE Lien_evenement_entite_politique (
+                ID_evenement INTEGER,
+                ID_entite_politique INTEGER,
+                description TEXT,
+                FOREIGN KEY(ID_evenement) REFERENCES Evenement(ID),
+                FOREIGN KEY(ID_entite_politique) REFERENCES Entite_politique(ID),
+                PRIMARY KEY (ID_evenement, ID_entite_politique)
+            );
+
+CREATE TABLE Lien_entite_politique_entite_politique (
+                ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                ID_entite_politique_A INTEGER,
+                ID_entite_politique_B INTEGER,
+                Date_Debut TEXT,
+                precision_Debut TEXT,
+                Date_Fin TEXT,
+                precision_Fin TEXT,
+                description TEXT,
+                FOREIGN KEY(ID_entite_politique_A) REFERENCES Entite_politique(ID),
+                FOREIGN KEY(ID_entite_politique_B) REFERENCES Entite_politique(ID)
             );

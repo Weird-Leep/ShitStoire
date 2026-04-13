@@ -56,6 +56,7 @@ async function loadTimelineData() {
                     start: start,
                     end: end,
                     type: isShort ? 'box' : 'range',
+                    align: 'left',
                     className: 'timeline-item-event' + (isShort ? ' vis-item-short' : '') + ' item-id-ev_' + e.ID,
                     customData: {
                         type: 'ev', id: e.ID, title: e.titre, start: e.Date_Debut, end: e.Date_Fin, description: e.description

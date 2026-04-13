@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
 // Image Upload Config
 const upload = multer({
@@ -21,19 +22,20 @@ function isValid(entity) {
 
 // Map tables to automatically clean their link tables (pseudo CASCADE DELETE)
 const relationMap = {
-    'Evenement': ['Lien_image_evenement', 'Lien_evenement_personnage', 'Lien_evenement_lieux', 'Lien_evenement_tags', 'Lien_evenement_sources', 'Lien_evenement_evenement'],
+    'Evenement': ['Lien_image_evenement', 'Lien_evenement_personnage', 'Lien_evenement_lieux', 'Lien_evenement_tags', 'Lien_evenement_sources', 'Lien_evenement_entite_politique', 'Lien_evenement_evenement'],
     'Personnages': ['Lien_image_personnage', 'Lien_evenement_personnage', 'Lien_personnage_fonctions', 'Lien_personnage_lieux', 'Lien_personnage_sources', 'Lien_personnage_personnage', 'Lien_personnage_entite_politique', 'Lien_personnage_tags'],
-    'Lieu': ['Lien_image_lieu', 'Lien_evenement_lieux', 'Lien_personnage_lieux', 'Lien_lieu_entite_politique'],
-    'Entite_politique': ['Lien_image_entite_politique', 'Lien_lieu_entite_politique', 'Lien_personnage_entite_politique', 'Lien_fonctions_entite_politique', 'Lien_entite_politique_tags'],
-    'Fonctions': ['Lien_image_fonctions', 'Lien_personnage_fonctions', 'Lien_fonctions_entite_politique'],
+    'Lieu': ['Lien_image_lieu', 'Lien_evenement_lieux', 'Lien_personnage_lieux', 'Lien_lieu_entite_politique', 'Lien_lieu_sources'],
+    'Entite_politique': ['Lien_image_entite_politique', 'Lien_lieu_entite_politique', 'Lien_personnage_entite_politique', 'Lien_fonctions_entite_politique', 'Lien_evenement_entite_politique', 'Lien_entite_politique_tags', 'Lien_entite_politique_sources', 'Lien_entite_politique_entite_politique'],
+    'Fonctions': ['Lien_image_fonctions', 'Lien_personnage_fonctions', 'Lien_fonctions_entite_politique', 'Lien_fonctions_sources'],
     'Tags': ['Lien_image_tags', 'Lien_evenement_tags', 'Lien_personnage_tags', 'Lien_entite_politique_tags'],
-    'Source': ['Lien_image_source', 'Lien_evenement_sources', 'Lien_personnage_sources'],
+    'Source': ['Lien_image_source', 'Lien_evenement_sources', 'Lien_personnage_sources', 'Lien_lieu_sources', 'Lien_entite_politique_sources', 'Lien_fonctions_sources'],
     'Image': ['Lien_image_evenement', 'Lien_image_personnage', 'Lien_image_fonctions', 'Lien_image_tags', 'Lien_image_lieu', 'Lien_image_entite_politique', 'Lien_image_source']
 };
 
 const symmetricLinkTables = {
     'Lien_personnage_personnage': ['ID_personnage_A', 'ID_personnage_B'],
-    'Lien_evenement_evenement': ['ID_evenement_A', 'ID_evenement_B']
+    'Lien_evenement_evenement': ['ID_evenement_A', 'ID_evenement_B'],
+    'Lien_entite_politique_entite_politique': ['ID_entite_politique_A', 'ID_entite_politique_B']
 };
 
 function cleanupRelations(entity, id) {
@@ -114,6 +116,17 @@ router.put('/:entity/:id', (req, res) => {
 router.delete('/:entity/:id', (req, res) => {
     if(!isValid(req.params.entity)) return res.status(400).send();
     try {
+        if (req.params.entity === 'Image') {
+            const image = db.prepare('SELECT chemin_fichier FROM Image WHERE ID = ?').get(req.params.id);
+            const relativePath = image?.chemin_fichier;
+            if (relativePath) {
+                const absolutePath = path.resolve(__dirname, '..', '..', relativePath.replace(/^\//, ''));
+                if (fs.existsSync(absolutePath)) {
+                    fs.unlinkSync(absolutePath);
+                }
+            }
+        }
+
         cleanupRelations(req.params.entity, req.params.id);
         db.prepare(`DELETE FROM ${req.params.entity} WHERE ID = ?`).run(req.params.id);
         res.json({success: true});

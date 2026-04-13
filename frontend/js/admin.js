@@ -1,8 +1,26 @@
 const API = "/api";
 let currentEntity = null;
 let currentRows = [];
-let cachedLinkData = {}; // Cache the link data for filtering
+let cachedLinkData = {};
 let editingId = null;
+let pendingLinks = [];
+let sortState = { field: null, dir: "asc" };
+
+const tablesWithDates = new Set([
+  "Lien_personnage_fonctions",
+  "Lien_personnage_lieux",
+  "Lien_lieu_entite_politique",
+  "Lien_fonctions_entite_politique",
+  "Lien_entite_politique_entite_politique",
+]);
+
+const datedTablesWithRowIdDelete = new Set([
+  "Lien_personnage_fonctions",
+  "Lien_personnage_lieux",
+  "Lien_lieu_entite_politique",
+  "Lien_fonctions_entite_politique",
+  "Lien_entite_politique_entite_politique",
+]);
 
 async function ensureAdminSession() {
   try {
@@ -47,6 +65,35 @@ function initSelect2Admin(scope = document) {
       allowClear: true,
     });
   });
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function getDefaultPrecision() {
+  return "Jour";
+}
+
+function clearLinkTransientFields(resetTarget = false) {
+  const desc = document.getElementById("link-description");
+  const dateDebut = document.getElementById("link-date-debut");
+  const dateFin = document.getElementById("link-date-fin");
+  const precisionDebut = document.getElementById("link-precision-debut");
+  const precisionFin = document.getElementById("link-precision-fin");
+  const targetId = document.getElementById("link-target-id");
+
+  if (desc) desc.value = "";
+  if (dateDebut) dateDebut.value = "";
+  if (dateFin) dateFin.value = "";
+  if (precisionDebut) precisionDebut.value = getDefaultPrecision();
+  if (precisionFin) precisionFin.value = getDefaultPrecision();
+  if (resetTarget && targetId) targetId.innerHTML = '<option value="">-- Sélectionnez un élément --</option>';
 }
 
 // Form template definition per entity
@@ -125,10 +172,16 @@ const schemas = {
     { name: "lien", label: "Lien Web / Info livre", type: "text" },
     { name: "description", label: "Description", type: "textarea" },
   ],
+  Image: [
+    { name: "Titre", label: "Titre", type: "text" },
+    { name: "description", label: "Description", type: "textarea" },
+  ],
 };
 
 async function loadEntity(entity) {
   currentEntity = entity;
+  sortState = { field: null, dir: "asc" };
+  pendingLinks = [];
   document.getElementById("current-entity-title").innerText =
     "Gestion - " + entity;
 
@@ -136,17 +189,6 @@ async function loadEntity(entity) {
   const tbody = document.getElementById("table-body");
   headersTr.innerHTML = "<th>Chargement...</th>";
   tbody.innerHTML = "";
-
-  if (!schemas[entity]) {
-    document.getElementById("btn-add-new").style.display = "none";
-    document.getElementById("admin-search-input").style.display = "none";
-    document.getElementById("form-container").style.display = "none";
-    document.getElementById("data-table-container").style.display = "block";
-    headersTr.innerHTML = "<th>Information</th>";
-    tbody.innerHTML =
-      "<tr><td>Gestion (ajout, modification) non configurée pour cette entité (Ex: Images).</td></tr>";
-    return;
-  }
 
   document.getElementById("btn-add-new").style.display = "inline-block";
   document.getElementById("admin-search-input").style.display = "inline-block";
@@ -193,6 +235,51 @@ async function loadEntity(entity) {
   renderAdminTable(currentRows);
 }
 
+function compareValues(a, b, fieldName) {
+  const aVal = a?.[fieldName] ?? "";
+  const bVal = b?.[fieldName] ?? "";
+
+  if (fieldName.includes("Date")) {
+    const aDate = aVal ? new Date(aVal).getTime() : Number.NEGATIVE_INFINITY;
+    const bDate = bVal ? new Date(bVal).getTime() : Number.NEGATIVE_INFINITY;
+    return aDate - bDate;
+  }
+
+  const aNum = Number(aVal);
+  const bNum = Number(bVal);
+  const aIsNum = Number.isFinite(aNum);
+  const bIsNum = Number.isFinite(bNum);
+  if (aIsNum && bIsNum) {
+    return aNum - bNum;
+  }
+
+  return String(aVal).localeCompare(String(bVal), "fr", { sensitivity: "base" });
+}
+
+function getSortedRows(rows) {
+  const copied = [...rows];
+  if (!sortState.field) return copied;
+
+  copied.sort((a, b) => {
+    const cmp = compareValues(a, b, sortState.field);
+    return sortState.dir === "asc" ? cmp : -cmp;
+  });
+
+  return copied;
+}
+
+function toggleSort(fieldName) {
+  if (sortState.field === fieldName) {
+    sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+  } else {
+    sortState.field = fieldName;
+    sortState.dir = "asc";
+  }
+  filterAdminTable();
+}
+
+window.toggleSort = toggleSort;
+
 function renderAdminTable(rowsToRender) {
   const headersTr = document.getElementById("table-headers");
   const tbody = document.getElementById("table-body");
@@ -204,8 +291,15 @@ function renderAdminTable(rowsToRender) {
   let extraHeaders = relationships
     .map((r) => `<th>Liens: ${r.target}</th>`)
     .join("");
+  const fieldHeaders = schemas[currentEntity]
+    .map((f) => {
+      const marker = sortState.field === f.name ? (sortState.dir === "asc" ? " ▲" : " ▼") : "";
+      return `<th class="sortable" onclick="toggleSort('${f.name}')">${escapeHtml(f.label)}${marker}</th>`;
+    })
+    .join("");
+
   headersTr.innerHTML =
-    schemas[currentEntity].map((f) => `<th>${f.label}</th>`).join("") +
+    fieldHeaders +
     extraHeaders +
     `<th>Actions</th>`;
 
@@ -216,7 +310,9 @@ function renderAdminTable(rowsToRender) {
     return;
   }
 
-  rowsToRender.forEach((row) => {
+  const sorted = getSortedRows(rowsToRender);
+
+  sorted.forEach((row) => {
     const tr = document.createElement("tr");
 
     let extraCols = relationships
@@ -226,8 +322,20 @@ function renderAdminTable(rowsToRender) {
       })
       .join("");
 
+    const baseCols = schemas[currentEntity]
+      .map((f) => {
+        if (currentEntity === "Image" && f.name === "Titre") {
+          const thumb = row.chemin_fichier
+            ? `<img src="${escapeHtml(row.chemin_fichier)}" alt="miniature" style="width:42px;height:42px;object-fit:cover;border-radius:6px;margin-right:8px;vertical-align:middle;">`
+            : "";
+          return `<td>${thumb}${escapeHtml(row[f.name] || "")}</td>`;
+        }
+        return `<td>${escapeHtml(row[f.name] || "")}</td>`;
+      })
+      .join("");
+
     tr.innerHTML =
-      schemas[currentEntity].map((f) => `<td>${row[f.name] || ""}</td>`).join("") +
+      baseCols +
       extraCols +
       `<td><button onclick="editRow(${row.ID})">Éditer/Lier</button> <button onclick="deleteRow(${row.ID})">Supprimer</button></td>`;
     tbody.appendChild(tr);
@@ -236,10 +344,7 @@ function renderAdminTable(rowsToRender) {
 
 function filterAdminTable() {
   const q = document.getElementById("admin-search-input").value.toLowerCase();
-  if (!q) {
-    renderAdminTable(currentRows);
-    return;
-  }
+  if (!q) return renderAdminTable(currentRows);
 
   const relationships = relationMapClient[currentEntity] || [];
 
@@ -299,12 +404,25 @@ function showAddForm(rowData = null) {
     formFields.appendChild(wrapper);
   });
 
+  if (currentEntity === "Image" && !rowData) {
+    const uploadWrapper = document.createElement("div");
+    uploadWrapper.innerHTML = `<label>Fichier image:</label> <input type="file" id="input_imageFile" accept="image/*" required>`;
+    formFields.appendChild(uploadWrapper);
+  }
+
   document.getElementById("form-title").innerText = rowData
     ? `Modifier ${currentEntity}`
     : `Créer ${currentEntity}`;
-  document.getElementById("links-manager-container").style.display = rowData
-    ? "block"
-    : "none"; // Only link after creation
+
+  document.getElementById("links-manager-container").style.display = "block";
+  document.getElementById("existing-links-container").style.display = rowData ? "block" : "none";
+  document.getElementById("pending-links-container").style.display = rowData ? "none" : "block";
+
+  pendingLinks = [];
+  renderPendingLinks();
+  populateLinkTargetTypes();
+  clearLinkTransientFields(true);
+  if (rowData) loadExistingLinks();
 
   initSelect2Admin();
 }
@@ -312,11 +430,6 @@ function showAddForm(rowData = null) {
 async function editRow(id) {
   const row = currentRows.find((r) => r.ID === id);
   showAddForm(row);
-
-  // Links Manager
-  document.getElementById("links-manager-container").style.display = "block";
-  populateLinkTargetTypes();
-  loadExistingLinks();
 }
 
 function getDisplayField(entityName) {
@@ -369,6 +482,12 @@ const relationMapClient = {
       fkSrc: "ID_evenement",
       fkDest: "ID_sources",
     },
+    {
+      target: "Entite_politique",
+      table: "Lien_evenement_entite_politique",
+      fkSrc: "ID_evenement",
+      fkDest: "ID_entite_politique",
+    },
   ],
   Personnages: [
     {
@@ -415,6 +534,12 @@ const relationMapClient = {
       fkSrc: "ID_lieu",
       fkDest: "ID_entite_politique",
     },
+    {
+      target: "Source",
+      table: "Lien_lieu_sources",
+      fkSrc: "ID_lieu",
+      fkDest: "ID_sources",
+    },
   ],
   Fonctions: [
     {
@@ -422,6 +547,12 @@ const relationMapClient = {
       table: "Lien_fonctions_entite_politique",
       fkSrc: "ID_fonctions",
       fkDest: "ID_entite_politique",
+    },
+    {
+      target: "Source",
+      table: "Lien_fonctions_sources",
+      fkSrc: "ID_fonctions",
+      fkDest: "ID_sources",
     },
   ],
   Entite_politique: [
@@ -432,10 +563,28 @@ const relationMapClient = {
       fkDest: "ID_fonctions",
     },
     {
+      target: "Evenement",
+      table: "Lien_evenement_entite_politique",
+      fkSrc: "ID_entite_politique",
+      fkDest: "ID_evenement",
+    },
+    {
+      target: "Source",
+      table: "Lien_entite_politique_sources",
+      fkSrc: "ID_entite_politique",
+      fkDest: "ID_sources",
+    },
+    {
       target: "Tags",
       table: "Lien_entite_politique_tags",
       fkSrc: "ID_entite_politique",
       fkDest: "ID_tags",
+    },
+    {
+      target: "Entite_politique",
+      table: "Lien_entite_politique_entite_politique",
+      fkSrc: "ID_entite_politique_A",
+      fkDest: "ID_entite_politique_B",
     },
   ],
   Tags: [
@@ -496,11 +645,32 @@ const relationMapClient = {
       fkDest: "ID_source",
     },
   ],
+  Source: [
+    {
+      target: "Lieu",
+      table: "Lien_lieu_sources",
+      fkSrc: "ID_sources",
+      fkDest: "ID_lieu",
+    },
+    {
+      target: "Fonctions",
+      table: "Lien_fonctions_sources",
+      fkSrc: "ID_sources",
+      fkDest: "ID_fonctions",
+    },
+    {
+      target: "Entite_politique",
+      table: "Lien_entite_politique_sources",
+      fkSrc: "ID_sources",
+      fkDest: "ID_entite_politique",
+    },
+  ],
 };
 
 const symmetricLinkTablesClient = new Set([
   "Lien_evenement_evenement",
   "Lien_personnage_personnage",
+  "Lien_entite_politique_entite_politique",
 ]);
 
 function populateLinkTargetTypes() {
@@ -511,11 +681,13 @@ function populateLinkTargetTypes() {
   relations.forEach((rel) => {
     select.innerHTML += `<option value="${rel.target}">${rel.target}</option>`;
   });
-  document.getElementById("link-target-id").innerHTML = ""; // reset options
+  document.getElementById("link-target-id").innerHTML = '<option value="">-- Sélectionnez un élément --</option>';
   initSelect2Admin();
 }
 
 async function loadLinkTargets() {
+  clearLinkTransientFields();
+
   const targetType = document.getElementById("link-target-type").value;
   const selectId = document.getElementById("link-target-id");
   const dateFields = document.getElementById("link-date-fields");
@@ -536,14 +708,7 @@ async function loadLinkTargets() {
     return;
   }
 
-  // Check if relation table supports dates
-  const tablesWithDates = [
-    "Lien_personnage_fonctions",
-    "Lien_personnage_lieux",
-    "Lien_lieu_entite_politique",
-    "Lien_fonctions_entite_politique",
-  ];
-  if (tablesWithDates.includes(rel.table) && dateFields) {
+  if (tablesWithDates.has(rel.table) && dateFields) {
     dateFields.style.display = "block";
   } else if (dateFields) {
     dateFields.style.display = "none";
@@ -553,6 +718,10 @@ async function loadLinkTargets() {
   let data = await res.json();
 
   if (rel.table === "Lien_evenement_evenement" && editingId) {
+    data = data.filter((d) => String(d.ID) !== String(editingId));
+  }
+
+  if (rel.table === "Lien_entite_politique_entite_politique" && editingId) {
     data = data.filter((d) => String(d.ID) !== String(editingId));
   }
 
@@ -568,6 +737,12 @@ async function loadLinkTargets() {
 
   initSelect2Admin();
 }
+
+function handleLinkTargetSelectionChange() {
+  clearLinkTransientFields();
+}
+
+window.handleLinkTargetSelectionChange = handleLinkTargetSelectionChange;
 
 function setImportStatus(message, isError = false) {
   const statusEl = document.getElementById("import-backup-status");
@@ -606,7 +781,14 @@ async function handleBackupImport(event) {
       throw new Error(payload.error || "Import impossible");
     }
 
-    setImportStatus("Import terminé. Les données ont été restaurées.");
+    const migrationApplied = payload?.migration?.applied?.length > 0;
+    if (migrationApplied) {
+      const from = payload.migration.fromVersion;
+      const to = payload.migration.toVersion;
+      setImportStatus(`Import terminé. Données restaurées et schéma migré (${from} -> ${to}).`);
+    } else {
+      setImportStatus("Import terminé. Les données ont été restaurées.");
+    }
     if (currentEntity) {
       await loadEntity(currentEntity);
     }
@@ -644,19 +826,14 @@ async function addLink() {
   if (rel.table === "Lien_evenement_evenement" && String(editingId) === String(targetId)) {
     return alert("Un évènement ne peut pas être lié à lui-même.");
   }
-  const tablesWithDates = [
-    "Lien_personnage_fonctions",
-    "Lien_personnage_lieux",
-    "Lien_lieu_entite_politique",
-    "Lien_fonctions_entite_politique",
-  ];
-
+  if (rel.table === "Lien_entite_politique_entite_politique" && String(editingId) === String(targetId)) {
+    return alert("Une entité politique ne peut pas être liée à elle-même.");
+  }
   const payload = {};
-  payload[rel.fkSrc] = editingId;
   payload[rel.fkDest] = targetId;
   if (desc) payload.description = desc;
 
-  if (tablesWithDates.includes(rel.table)) {
+  if (tablesWithDates.has(rel.table)) {
     const dDebut = document.getElementById("link-date-debut")?.value;
     const pDebut = document.getElementById("link-precision-debut")?.value;
     const dFin = document.getElementById("link-date-fin")?.value;
@@ -667,6 +844,23 @@ async function addLink() {
     if (dFin) payload.Date_Fin = dFin;
     if (pFin) payload.precision_Fin = pFin;
   }
+
+  if (!editingId) {
+    const targetText = document.getElementById("link-target-id")?.selectedOptions?.[0]?.textContent || `ID ${targetId}`;
+    pendingLinks.push({
+      table: rel.table,
+      fkSrc: rel.fkSrc,
+      fkDest: rel.fkDest,
+      targetType,
+      targetLabel: targetText,
+      payload,
+    });
+    renderPendingLinks();
+    clearLinkTransientFields();
+    return;
+  }
+
+  payload[rel.fkSrc] = editingId;
 
   try {
     const res = await fetch(`${API}/links/${rel.table}`, {
@@ -691,8 +885,66 @@ async function addLink() {
     }
 
     await loadExistingLinks();
+    clearLinkTransientFields();
   } catch (err) {
     alert(`Erreur lors de l'enregistrement du lien : ${err.message}`);
+  }
+}
+
+function renderPendingLinks() {
+  const list = document.getElementById("pending-links-list");
+  if (!list) return;
+  if (pendingLinks.length === 0) {
+    list.innerHTML = "<li>Aucun lien en attente.</li>";
+    return;
+  }
+
+  list.innerHTML = pendingLinks
+    .map((link, index) => {
+      const dates = link.payload.Date_Debut || link.payload.Date_Fin
+        ? ` - ${escapeHtml(link.payload.Date_Debut || "?")} à ${escapeHtml(link.payload.Date_Fin || "?")}`
+        : "";
+      const desc = link.payload.description ? ` (${escapeHtml(link.payload.description)})` : "";
+      return `<li><b>[${escapeHtml(link.targetType)}]</b> ${escapeHtml(link.targetLabel)}${dates}${desc}
+        <button type="button" onclick="removePendingLink(${index})">Retirer</button></li>`;
+    })
+    .join("");
+}
+
+function removePendingLink(index) {
+  pendingLinks.splice(index, 1);
+  renderPendingLinks();
+}
+
+window.removePendingLink = removePendingLink;
+
+async function createPendingLinks(newEntityId) {
+  const failed = [];
+  let okCount = 0;
+
+  for (const pending of pendingLinks) {
+    const payload = { ...pending.payload, [pending.fkSrc]: newEntityId };
+    try {
+      const res = await fetch(`${API}/links/${pending.table}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Insertion refusée");
+      }
+      okCount += 1;
+    } catch (e) {
+      failed.push(`${pending.table}: ${e.message}`);
+    }
+  }
+
+  pendingLinks = [];
+  renderPendingLinks();
+
+  if (failed.length > 0) {
+    alert(`Entité créée. ${okCount} lien(s) ajouté(s), ${failed.length} échec(s).\n${failed.join("\n")}`);
   }
 }
 
@@ -733,8 +985,15 @@ async function loadExistingLinks() {
           ? targetEntity[displayF]
           : `(ID inconnu: ${targetID})`;
 
-        html += `<li><b>[${rel.target}]</b>: ${targetName} <i>${link.description ? " (" + link.description + ")" : ""}</i> 
-                    <button type="button" onclick="deleteLink('${rel.table}', '${rel.fkSrc}', '${rel.fkDest}', ${link[rel.fkSrc]}, ${link[rel.fkDest]})">Délier</button>
+        const datePart = tablesWithDates.has(rel.table)
+          ? ` ${link.Date_Debut || ""}${(link.Date_Debut || link.Date_Fin) ? " -> " : ""}${link.Date_Fin || ""}`
+          : "";
+        const deleteParams = datedTablesWithRowIdDelete.has(rel.table) && link.ID
+          ? `'${rel.table}', '', '', 0, 0, ${Number(link.ID)}`
+          : `'${rel.table}', '${rel.fkSrc}', '${rel.fkDest}', ${Number(link[rel.fkSrc])}, ${Number(link[rel.fkDest])}, 0`;
+
+        html += `<li><b>[${rel.target}]</b>: ${escapeHtml(targetName)}${datePart ? ` <small>${escapeHtml(datePart)}</small>` : ""} <i>${link.description ? " (" + escapeHtml(link.description) + ")" : ""}</i>
+                    <button type="button" onclick="deleteLink(${deleteParams})">Délier</button>
                     </li>`;
       }
     }
@@ -742,10 +1001,13 @@ async function loadExistingLinks() {
   list.innerHTML = html || "<li>Aucun lien enregistré.</li>";
 }
 
-async function deleteLink(tableName, fkSrc, fkDest, srcId, destId) {
+async function deleteLink(tableName, fkSrc, fkDest, srcId, destId, rowId = 0) {
   if (!confirm("Retirer ce lien ?")) return;
+  const query = rowId
+    ? `ID=${rowId}`
+    : `${fkSrc}=${srcId}&${fkDest}=${destId}`;
   await fetch(
-    `${API}/links/${tableName}?${fkSrc}=${srcId}&${fkDest}=${destId}`,
+    `${API}/links/${tableName}?${query}`,
     {
       method: "DELETE",
     },
@@ -753,12 +1015,15 @@ async function deleteLink(tableName, fkSrc, fkDest, srcId, destId) {
   loadExistingLinks(); // Refresh list
 }
 
+window.deleteLink = deleteLink;
+
 function cancelForm() {
   loadEntity(currentEntity);
 }
 
 document.getElementById("entity-form").addEventListener("submit", async (e) => {
   e.preventDefault();
+
   const data = {};
   schemas[currentEntity].forEach((f) => {
     data[f.name] = document.getElementById(`input_${f.name}`).value;
@@ -769,11 +1034,49 @@ document.getElementById("entity-form").addEventListener("submit", async (e) => {
     ? `${API}/entities/${currentEntity}/${editingId}`
     : `${API}/entities/${currentEntity}`;
 
-  await fetch(url, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
+  let responsePayload = null;
+
+  if (currentEntity === "Image" && !editingId) {
+    const imageInput = document.getElementById("input_imageFile");
+    if (!imageInput?.files?.length) {
+      alert("Veuillez sélectionner une image à uploader.");
+      return;
+    }
+
+    const fd = new FormData();
+    fd.append("imageFile", imageInput.files[0]);
+    fd.append("Titre", data.Titre || "");
+    fd.append("description", data.description || "");
+
+    const res = await fetch(`${API}/entities/Image/upload`, {
+      method: "POST",
+      body: fd,
+    });
+    responsePayload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(responsePayload.error || "Upload image impossible.");
+      return;
+    }
+  } else {
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    responsePayload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(responsePayload.error || "Sauvegarde impossible.");
+      return;
+    }
+  }
+
+  if (!editingId && pendingLinks.length > 0) {
+    const createdId = Number(responsePayload?.id);
+    if (Number.isInteger(createdId) && createdId > 0) {
+      await createPendingLinks(createdId);
+    }
+  }
+
   loadEntity(currentEntity);
 });
 

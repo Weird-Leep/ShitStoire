@@ -1,0 +1,172 @@
+body {
+    margin: 0;
+}
+
+.admin-container {
+    display: grid;
+    gap: 18px;
+    padding: 18px;
+}
+
+.admin-workspace {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 18px;
+    align-items: start;
+}
+
+.sidebar,
+.content,
+.backup-section {
+    background: #ffffff;
+    border: 1px solid #d9dee8;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 6px 18px rgba(14, 25, 47, 0.08);
+}
+
+.sidebar h3,
+.content h2,
+.backup-section h4 {
+    margin-top: 0;
+}
+
+#entity-nav {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+}
+
+#entity-nav button {
+    width: 100%;
+    text-align: left;
+    padding: 10px 12px;
+    border: 1px solid #ced7ea;
+    border-radius: 8px;
+    background: #f8fbff;
+    cursor: pointer;
+}
+
+.management-toolbar {
+    margin-bottom: 14px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+#admin-search-input {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #cdd5e0;
+    border-radius: 6px;
+}
+
+#data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#data-table th,
+#data-table td {
+    border: 1px solid #dce3ee;
+    padding: 8px;
+    vertical-align: top;
+}
+
+#data-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    background: #f4f7fb;
+}
+
+#form-fields {
+    display: grid;
+    gap: 10px;
+}
+
+#form-fields label {
+    display: inline-block;
+    min-width: 140px;
+    font-weight: 600;
+}
+
+#form-fields input,
+#form-fields textarea,
+#form-fields select {
+    min-width: 260px;
+    max-width: 100%;
+    padding: 8px;
+}
+
+.form-actions {
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+}
+
+.link-form-row {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.link-form-row > div:first-child {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+#link-date-fields {
+    padding: 10px;
+    background: #f6f8fc;
+    border-radius: 8px;
+}
+
+#existing-links-list,
+#pending-links-list {
+    margin: 8px 0 0;
+    padding-left: 18px;
+}
+
+.backup-section p {
+    margin-top: 0;
+    color: #4b5563;
+}
+
+.export-btn {
+    display: inline-block;
+    background: #007bff;
+    color: #ffffff;
+    text-align: center;
+    padding: 10px 14px;
+    border-radius: 6px;
+    text-decoration: none;
+}
+
+.backup-form {
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+#import-backup-status {
+    margin-top: 10px;
+    font-size: 13px;
+}
+
+@media (max-width: 900px) {
+    .admin-workspace {
+        grid-template-columns: 1fr;
+    }
+
+    #form-fields label {
+        min-width: 0;
+        display: block;
+        margin-bottom: 4px;
+    }
+}

@@ -50,10 +50,13 @@ async function initFilters() {
     // 1. Fetch all link tables
     const linkTables = [
         'Lien_evenement_personnage', 'Lien_evenement_lieux', 'Lien_evenement_tags', 'Lien_evenement_sources',
+        'Lien_evenement_entite_politique',
         'Lien_evenement_evenement',
         'Lien_personnage_fonctions', 'Lien_personnage_lieux', 'Lien_personnage_sources', 'Lien_personnage_personnage',
         'Lien_personnage_entite_politique', 'Lien_personnage_tags',
-        'Lien_lieu_entite_politique', 'Lien_fonctions_entite_politique', 'Lien_entite_politique_tags',
+        'Lien_lieu_entite_politique', 'Lien_lieu_sources',
+        'Lien_fonctions_entite_politique', 'Lien_fonctions_sources',
+        'Lien_entite_politique_tags', 'Lien_entite_politique_sources', 'Lien_entite_politique_entite_politique',
         'Lien_image_evenement', 'Lien_image_personnage', 'Lien_image_fonctions', 'Lien_image_tags', 'Lien_image_lieu', 'Lien_image_entite_politique', 'Lien_image_source'
     ];
     

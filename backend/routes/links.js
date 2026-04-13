@@ -7,8 +7,13 @@ const linkTables = [
     'Lien_image_evenement', 'Lien_image_personnage', 'Lien_image_fonctions', 
     'Lien_image_tags', 'Lien_image_lieu', 'Lien_image_entite_politique', 'Lien_image_source',
     'Lien_evenement_personnage', 'Lien_evenement_lieux', 'Lien_evenement_tags', 'Lien_evenement_sources',
+    'Lien_evenement_entite_politique',
     'Lien_personnage_fonctions', 'Lien_personnage_lieux', 'Lien_personnage_sources', 'Lien_personnage_personnage',
-    'Lien_lieu_entite_politique', 'Lien_personnage_entite_politique', 'Lien_evenement_evenement', 'Lien_fonctions_entite_politique', 'Lien_personnage_tags', 'Lien_entite_politique_tags'
+    'Lien_lieu_entite_politique', 'Lien_lieu_sources',
+    'Lien_personnage_entite_politique', 'Lien_evenement_evenement',
+    'Lien_fonctions_entite_politique', 'Lien_fonctions_sources',
+    'Lien_personnage_tags', 'Lien_entite_politique_tags',
+    'Lien_entite_politique_sources', 'Lien_entite_politique_entite_politique'
 ];
 
 function isLinkValid(table) { return linkTables.includes(table); }
@@ -92,6 +97,19 @@ router.post('/:table', (req, res) => {
             }
         }
 
+        if (req.params.table === 'Lien_entite_politique_entite_politique') {
+            const firstId = Number(req.body.ID_entite_politique_A);
+            const secondId = Number(req.body.ID_entite_politique_B);
+            if (firstId === secondId) {
+                return res.status(400).json({error: 'Self links are not allowed'});
+            }
+
+            if (firstId > secondId) {
+                req.body.ID_entite_politique_A = secondId;
+                req.body.ID_entite_politique_B = firstId;
+            }
+        }
+
         const fields = Object.keys(req.body);
         const values = Object.values(req.body);
         const qs = fields.map(() => '?').join(', ');
@@ -109,6 +127,16 @@ router.post('/:table', (req, res) => {
 router.delete('/:table', (req, res) => {
     if(!isLinkValid(req.params.table)) return res.status(400).send();
     try {
+        if (req.query.ID !== undefined) {
+            const rowId = Number(req.query.ID);
+            if (!Number.isInteger(rowId) || rowId <= 0) {
+                return res.status(400).json({ error: 'Invalid ID' });
+            }
+
+            db.prepare(`DELETE FROM ${req.params.table} WHERE ID = ?`).run(rowId);
+            return res.json({success: true});
+        }
+
         const fields = Object.keys(req.query);
         const whereClause = fields.map(f => `${f} = ?`).join(' AND ');
         const values = Object.values(req.query);

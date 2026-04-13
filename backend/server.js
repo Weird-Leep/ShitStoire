@@ -45,8 +45,9 @@ app.use('/api/links', (req, res, next) => {
 app.get('/api/export', requireAdmin, (req, res) => {
     // Crée une archive ZIP à la volée contenant la DB locale et les images stockées
     const archive = archiver('zip', { zlib: { level: 9 } });
+    const exportDate = new Date().toISOString().slice(0, 10);
 
-    res.attachment('shitstoire_export.zip'); // Indique au navigateur un téléchargement forcé
+    res.attachment(`shitstoire_export_${exportDate}.zip`); // Indique au navigateur un téléchargement forcé
     archive.pipe(res);
 
     // Ajout de la base de données SQL
@@ -170,11 +171,16 @@ app.post('/api/import', requireAdmin, importUpload.single('backupZip'), (req, re
         dbModule.reopenDb();
         dbClosed = false;
 
+        const migrationReport = dbModule.getLastMigrationReport
+            ? dbModule.getLastMigrationReport()
+            : { fromVersion: 0, toVersion: 0, applied: [] };
+
         res.json({
             success: true,
             message: 'Import effectué avec succès.',
             backupDir,
             importedUploads: Boolean(importedUploadsPath),
+            migration: migrationReport,
         });
     } catch (err) {
         try {

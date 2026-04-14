@@ -1,34 +1,120 @@
+:root {
+    --admin-bg: linear-gradient(125deg, #f3f6ff 0%, #f8fbff 40%, #f5fbf3 100%);
+    --admin-surface: #ffffff;
+    --admin-surface-soft: #f4f8ff;
+    --admin-border: #d8e2f2;
+    --admin-border-strong: #c2d2ec;
+    --admin-text: #13243d;
+    --admin-text-muted: #4e5e77;
+    --admin-primary: #0e66d8;
+    --admin-primary-soft: #dcebff;
+    --admin-success: #11824b;
+    --admin-danger: #c04343;
+    --admin-shadow: 0 14px 34px rgba(12, 34, 69, 0.1);
+}
+
+* {
+    box-sizing: border-box;
+}
+
 body {
     margin: 0;
+    font-family: "Manrope", "Segoe UI", sans-serif;
+    color: var(--admin-text);
+    background: var(--admin-bg);
+}
+
+header {
+    position: sticky;
+    top: 0;
+    z-index: 12;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--admin-border);
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(8px);
+}
+
+header h1 {
+    margin: 0;
+    font-size: clamp(1.05rem, 1.7vw, 1.45rem);
+    letter-spacing: 0.01em;
+}
+
+header nav ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+header nav a,
+#logout-button {
+    border: 1px solid var(--admin-border);
+    border-radius: 999px;
+    padding: 8px 14px;
+    text-decoration: none;
+    color: var(--admin-text);
+    background: #ffffff;
+    font-weight: 700;
+    font-size: 0.9rem;
+    transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+}
+
+header nav a:hover,
+#logout-button:hover {
+    transform: translateY(-1px);
+    border-color: var(--admin-border-strong);
+    background: #f7fbff;
+}
+
+header nav a.active {
+    border-color: var(--admin-primary);
+    background: var(--admin-primary-soft);
+    color: #083d87;
+}
+
+#logout-button {
+    cursor: pointer;
+    color: #ffffff;
+    border-color: #b93636;
+    background: linear-gradient(135deg, #ce4444, #b83131);
 }
 
 .admin-container {
     display: grid;
-    gap: 18px;
-    padding: 18px;
+    gap: 20px;
+    padding: 20px;
 }
 
 .admin-workspace {
     display: grid;
-    grid-template-columns: 260px 1fr;
-    gap: 18px;
+    grid-template-columns: minmax(240px, 280px) 1fr;
+    gap: 20px;
     align-items: start;
 }
 
 .sidebar,
 .content,
 .backup-section {
-    background: #ffffff;
-    border: 1px solid #d9dee8;
-    border-radius: 12px;
-    padding: 16px;
-    box-shadow: 0 6px 18px rgba(14, 25, 47, 0.08);
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: 18px;
+    padding: 18px;
+    box-shadow: var(--admin-shadow);
 }
 
 .sidebar h3,
 .content h2,
 .backup-section h4 {
     margin-top: 0;
+    margin-bottom: 12px;
 }
 
 #entity-nav {
@@ -42,48 +128,106 @@ body {
 #entity-nav button {
     width: 100%;
     text-align: left;
-    padding: 10px 12px;
-    border: 1px solid #ced7ea;
-    border-radius: 8px;
-    background: #f8fbff;
+    padding: 9px 14px;
+    border: 1px solid var(--admin-border-strong);
+    border-radius: 12px;
+    background: linear-gradient(180deg, #fafdff, #edf5ff);
+    color: #13345f;
+    font-weight: 700;
     cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+#entity-nav button:hover {
+    transform: translateY(-1px);
+    border-color: #9eb8df;
+    box-shadow: 0 8px 16px rgba(13, 56, 122, 0.12);
 }
 
 .management-toolbar {
     margin-bottom: 14px;
     display: flex;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 12px;
     align-items: center;
+}
+
+#btn-add-new,
+.form-actions button,
+.link-form-row button,
+.backup-form button,
+.export-btn {
+    border: 0;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#btn-add-new,
+.form-actions button[type="submit"],
+.link-form-row button,
+.backup-form button,
+.export-btn {
+    color: #ffffff;
+    background: linear-gradient(135deg, #0f6fe9, #0a57b8);
+    box-shadow: 0 10px 18px rgba(7, 77, 168, 0.18);
+}
+
+#btn-add-new:hover,
+.form-actions button[type="submit"]:hover,
+.link-form-row button:hover,
+.backup-form button:hover,
+.export-btn:hover {
+    transform: translateY(-1px);
+}
+
+.form-actions button[type="button"] {
+    color: #25344c;
+    background: #eaf1fb;
 }
 
 #admin-search-input {
     flex: 1;
-    padding: 8px;
-    border: 1px solid #cdd5e0;
-    border-radius: 6px;
+    min-width: min(100%, 280px);
+    padding: 10px 12px;
+    border: 1px solid var(--admin-border-strong);
+    border-radius: 12px;
+    background: #fdfefe;
+    font-family: inherit;
+}
+
+#data-table-container {
+    overflow-x: auto;
 }
 
 #data-table {
     width: 100%;
     border-collapse: collapse;
+    min-width: 620px;
 }
 
 #data-table th,
 #data-table td {
-    border: 1px solid #dce3ee;
-    padding: 8px;
+    border: 1px solid #dde7f5;
+    padding: 10px;
     vertical-align: top;
+    text-align: left;
 }
 
 #data-table th.sortable {
     cursor: pointer;
     user-select: none;
-    background: #f4f7fb;
+    background: #f2f7ff;
 }
 
 #form-fields {
     display: grid;
-    gap: 10px;
+    gap: 12px;
+    margin-top: 14px;
 }
 
 #form-fields label {
@@ -97,32 +241,38 @@ body {
 #form-fields select {
     min-width: 260px;
     max-width: 100%;
-    padding: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--admin-border-strong);
+    border-radius: 12px;
+    font-family: inherit;
+    background: #ffffff;
 }
 
 .form-actions {
-    margin-top: 10px;
+    margin-top: 14px;
     display: flex;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .link-form-row {
     display: grid;
-    gap: 10px;
+    gap: 12px;
     margin-bottom: 12px;
 }
 
 .link-form-row > div:first-child {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: wrap;
     align-items: center;
 }
 
 #link-date-fields {
     padding: 10px;
-    background: #f6f8fc;
-    border-radius: 8px;
+    background: var(--admin-surface-soft);
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
 }
 
 #existing-links-list,
@@ -133,30 +283,51 @@ body {
 
 .backup-section p {
     margin-top: 0;
-    color: #4b5563;
+    color: var(--admin-text-muted);
 }
 
 .export-btn {
     display: inline-block;
-    background: #007bff;
-    color: #ffffff;
     text-align: center;
-    padding: 10px 14px;
-    border-radius: 6px;
     text-decoration: none;
 }
 
 .backup-form {
-    margin-top: 10px;
+    margin-top: 14px;
     display: flex;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: wrap;
     align-items: center;
 }
 
+.backup-form input[type="file"] {
+    flex: 1;
+    min-width: 220px;
+    padding: 10px 12px;
+    border: 1px dashed var(--admin-border-strong);
+    border-radius: 12px;
+    background: #fbfdff;
+}
+
 #import-backup-status {
     margin-top: 10px;
-    font-size: 13px;
+    font-size: 0.86rem;
+}
+
+@media (max-width: 1100px) {
+    header {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 12px 16px;
+    }
+
+    header nav {
+        width: 100%;
+    }
+
+    .admin-container {
+        padding: 16px;
+    }
 }
 
 @media (max-width: 900px) {
@@ -164,9 +335,48 @@ body {
         grid-template-columns: 1fr;
     }
 
+    .sidebar {
+        order: -1;
+    }
+
     #form-fields label {
         min-width: 0;
         display: block;
         margin-bottom: 4px;
+    }
+
+}
+
+@media (max-width: 640px) {
+    .admin-container {
+        gap: 14px;
+        padding: 12px;
+    }
+
+    .sidebar,
+    .content,
+    .backup-section {
+        border-radius: 14px;
+        padding: 14px;
+    }
+
+    .management-toolbar {
+        align-items: stretch;
+    }
+
+    #btn-add-new,
+    #admin-search-input {
+        width: 100%;
+    }
+
+    .form-actions button,
+    .backup-form button,
+    .backup-form input[type="file"] {
+        width: 100%;
+    }
+
+    #link-date-fields input,
+    #link-date-fields select {
+        width: 100%;
     }
 }

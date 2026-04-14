@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ShitStoire - Administration et Formulaires</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/theme-retrowave.css">
     <link rel="stylesheet" href="css/admin.css">
@@ -17,7 +20,7 @@
                 <li><a href="index.html">Accueil</a></li>
                 <li><a href="visualisations.html">Visualisations</a></li>
                 <li><a href="admin.html" class="active">Administration</a></li>
-                <li><button type="button" onclick="logoutAdmin()" style="background:#c43a3a;color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;">Se déconnecter</button></li>
+                <li><button id="logout-button" type="button" onclick="logoutAdmin()">Se déconnecter</button></li>
             </ul>
         </nav>
     </header>

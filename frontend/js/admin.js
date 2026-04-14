@@ -2,9 +2,14 @@ const API = "/api";
 let currentEntity = null;
 let currentRows = [];
 let cachedLinkData = {};
+let cachedLinkIds = {};
 let editingId = null;
 let pendingLinks = [];
 let sortState = { field: null, dir: "asc" };
+let selectedRowIds = new Set();
+let adminFilters = [];
+let nextAdminFilterId = 1;
+let lastFilteredRows = [];
 
 const tablesWithDates = new Set([
   "Lien_personnage_fonctions",
@@ -49,7 +54,7 @@ function initSelect2Admin(scope = document) {
   const $ = window.jQuery;
   const $scope = $(scope);
   const targets = $scope.find(
-    '#link-target-type, #link-target-id',
+    "#link-target-type, #link-target-id, .admin-filter-kind, .admin-filter-target-type, .admin-filter-target-values, #bulk-link-target-type, #bulk-link-target-ids",
   );
 
   targets.each(function () {
@@ -94,6 +99,59 @@ function clearLinkTransientFields(resetTarget = false) {
   if (precisionDebut) precisionDebut.value = getDefaultPrecision();
   if (precisionFin) precisionFin.value = getDefaultPrecision();
   if (resetTarget && targetId) targetId.innerHTML = '<option value="">-- Sélectionnez un élément --</option>';
+}
+
+function getEntityDateColumns(entityName) {
+  if (entityName === "Evenement" || entityName === "Entite_politique") {
+    return { start: "Date_Debut", end: "Date_Fin" };
+  }
+  if (entityName === "Personnages") {
+    return { start: "Date_Naissance", end: "Date_Mort" };
+  }
+  return null;
+}
+
+function parseDateOrNull(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
+function rowMatchesDateRange(row, entityName, startFilter, endFilter) {
+  const cols = getEntityDateColumns(entityName);
+  if (!cols) return true;
+
+  const start = parseDateOrNull(row[cols.start]);
+  const end = parseDateOrNull(row[cols.end]) || start;
+
+  if (!start) return false;
+  if (startFilter && end && end < startFilter) return false;
+  if (endFilter && start > endFilter) return false;
+  return true;
+}
+
+function getCurrentEntityRelations() {
+  return relationMapClient[currentEntity] || [];
+}
+
+function getVisibleRowIds() {
+  return lastFilteredRows.map((row) => Number(row.ID));
+}
+
+function updateBulkButtonState() {
+  const bulkBtn = document.getElementById("btn-bulk-link");
+  if (!bulkBtn) return;
+  bulkBtn.style.display = currentEntity ? "inline-block" : "none";
+  bulkBtn.disabled = selectedRowIds.size === 0;
+  bulkBtn.textContent = selectedRowIds.size > 0
+    ? `Édition de liens en masse (${selectedRowIds.size})`
+    : "Édition de liens en masse";
+}
+
+function pruneSelectionToCurrentRows() {
+  const allowed = new Set((currentRows || []).map((row) => Number(row.ID)));
+  selectedRowIds = new Set([...selectedRowIds].filter((id) => allowed.has(Number(id))));
 }
 
 // Form template definition per entity
@@ -182,6 +240,9 @@ async function loadEntity(entity) {
   currentEntity = entity;
   sortState = { field: null, dir: "asc" };
   pendingLinks = [];
+  selectedRowIds.clear();
+  adminFilters = [];
+  nextAdminFilterId = 1;
   document.getElementById("current-entity-title").innerText =
     "Gestion - " + entity;
 
@@ -192,9 +253,13 @@ async function loadEntity(entity) {
 
   document.getElementById("btn-add-new").style.display = "inline-block";
   document.getElementById("admin-search-input").style.display = "inline-block";
+  document.getElementById("btn-add-filter").style.display = "inline-block";
+  document.getElementById("btn-clear-filters").style.display = "inline-block";
+  document.getElementById("admin-filters-panel").style.display = "block";
   document.getElementById("admin-search-input").value = ""; // reset search
   document.getElementById("form-container").style.display = "none";
   document.getElementById("data-table-container").style.display = "block";
+  document.getElementById("bulk-editor-container").style.display = "none";
 
   const res = await fetch(`${API}/entities/${entity}`);
   currentRows = await res.json();
@@ -202,8 +267,10 @@ async function loadEntity(entity) {
   // Attempt to load associated links for preview in table
   const relationships = relationMapClient[entity] || [];
   const linkData = {};
+  const linkIds = {};
   for (let r of relationships) {
     linkData[r.target] = [];
+    linkIds[r.target] = [];
     try {
       const tableRes = await fetch(`${API}/links/${r.table}`);
       const tableLinks = await tableRes.json();
@@ -214,25 +281,40 @@ async function loadEntity(entity) {
       const displayF = getDisplayField(r.target);
 
       tableLinks.forEach((l) => {
-        const isSrcMe =
-          l[r.fkSrc] !== undefined &&
-          l[r.fkSrc] !== null &&
-          l[r.fkDest] !== undefined;
-        if (isSrcMe) {
-          const myId = l[r.fkSrc];
-          const theirId = l[r.fkDest];
-          const targetEntity = targets.find((t) => t.ID == theirId);
-          if (targetEntity) {
-            if (!linkData[r.target][myId]) linkData[r.target][myId] = [];
-            linkData[r.target][myId].push(targetEntity[displayF]);
+        const srcValue = l[r.fkSrc];
+        const destValue = l[r.fkDest];
+        if (srcValue === undefined || srcValue === null || destValue === undefined || destValue === null) {
+          return;
+        }
+
+        if (!linkData[r.target][srcValue]) linkData[r.target][srcValue] = [];
+        if (!linkIds[r.target][srcValue]) linkIds[r.target][srcValue] = [];
+
+        const directTarget = targets.find((t) => Number(t.ID) === Number(destValue));
+        if (directTarget) {
+          linkData[r.target][srcValue].push(directTarget[displayF]);
+        }
+        linkIds[r.target][srcValue].push(Number(destValue));
+
+        if (symmetricLinkTablesClient.has(r.table)) {
+          if (!linkData[r.target][destValue]) linkData[r.target][destValue] = [];
+          if (!linkIds[r.target][destValue]) linkIds[r.target][destValue] = [];
+
+          const reverseTarget = targets.find((t) => Number(t.ID) === Number(srcValue));
+          if (reverseTarget) {
+            linkData[r.target][destValue].push(reverseTarget[displayF]);
           }
+          linkIds[r.target][destValue].push(Number(srcValue));
         }
       });
     } catch (e) {}
   }
   
   cachedLinkData = linkData;
-  renderAdminTable(currentRows);
+  cachedLinkIds = linkIds;
+  renderAdminFilters();
+  applyAllAdminFilters();
+  updateBulkButtonState();
 }
 
 function compareValues(a, b, fieldName) {
@@ -275,7 +357,7 @@ function toggleSort(fieldName) {
     sortState.field = fieldName;
     sortState.dir = "asc";
   }
-  filterAdminTable();
+  applyAllAdminFilters();
 }
 
 window.toggleSort = toggleSort;
@@ -298,15 +380,32 @@ function renderAdminTable(rowsToRender) {
     })
     .join("");
 
+  const visibleIds = new Set((rowsToRender || []).map((row) => Number(row.ID)));
+  const allVisibleSelected = visibleIds.size > 0 && [...visibleIds].every((id) => selectedRowIds.has(id));
+
   headersTr.innerHTML =
+    `<th><input type="checkbox" id="select-all-rows" ${allVisibleSelected ? "checked" : ""}></th>` +
     fieldHeaders +
     extraHeaders +
     `<th>Actions</th>`;
 
+  const selectAll = document.getElementById("select-all-rows");
+  if (selectAll) {
+    selectAll.addEventListener("change", (event) => {
+      if (event.target.checked) {
+        visibleIds.forEach((id) => selectedRowIds.add(id));
+      } else {
+        visibleIds.forEach((id) => selectedRowIds.delete(id));
+      }
+      updateBulkButtonState();
+      renderBulkOverrides();
+    });
+  }
+
   tbody.innerHTML = "";
 
   if (!Array.isArray(rowsToRender) || rowsToRender.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="${schemas[currentEntity].length + relationships.length + 1}">Aucune donnée trouvée.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${schemas[currentEntity].length + relationships.length + 2}">Aucune donnée trouvée.</td></tr>`;
     return;
   }
 
@@ -335,20 +434,37 @@ function renderAdminTable(rowsToRender) {
       .join("");
 
     tr.innerHTML =
+      `<td><input type="checkbox" class="row-selector" data-id="${Number(row.ID)}" ${selectedRowIds.has(Number(row.ID)) ? "checked" : ""}></td>` +
       baseCols +
       extraCols +
       `<td><button onclick="editRow(${row.ID})">Éditer/Lier</button> <button onclick="deleteRow(${row.ID})">Supprimer</button></td>`;
+
+    const selector = tr.querySelector(".row-selector");
+    if (selector) {
+      selector.addEventListener("change", (event) => {
+        const rowId = Number(event.target.dataset.id);
+        if (event.target.checked) selectedRowIds.add(rowId);
+        else selectedRowIds.delete(rowId);
+        updateBulkButtonState();
+        renderBulkOverrides();
+      });
+    }
+
     tbody.appendChild(tr);
   });
 }
 
 function filterAdminTable() {
-  const q = document.getElementById("admin-search-input").value.toLowerCase();
-  if (!q) return renderAdminTable(currentRows);
+  applyAllAdminFilters();
+}
 
+function applyAllAdminFilters() {
+  if (!currentEntity || !Array.isArray(currentRows)) return;
+
+  const q = document.getElementById("admin-search-input").value.toLowerCase();
   const relationships = relationMapClient[currentEntity] || [];
 
-  const filtered = currentRows.filter((row) => {
+  let filtered = currentRows.filter((row) => {
     // Check main entity fields
     const schemaMatch = schemas[currentEntity].some((f) => {
       const val = row[f.name];
@@ -366,8 +482,208 @@ function filterAdminTable() {
     return linkMatch;
   });
 
+  const dateFilters = adminFilters.filter((f) => f.kind === "date");
+  const linkFilters = adminFilters.filter((f) => f.kind === "link");
+
+  dateFilters.forEach((filter) => {
+    const startDate = parseDateOrNull(filter.startDate);
+    const endDate = parseDateOrNull(filter.endDate);
+    if (!startDate && !endDate) return;
+    filtered = filtered.filter((row) => rowMatchesDateRange(row, currentEntity, startDate, endDate));
+  });
+
+  linkFilters.forEach((filter) => {
+    if (!filter.targetType || !Array.isArray(filter.targetIds) || filter.targetIds.length === 0) return;
+    filtered = filtered.filter((row) => {
+      const linkedIds = (cachedLinkIds[filter.targetType] && cachedLinkIds[filter.targetType][row.ID]) || [];
+      const linkedSet = new Set(linkedIds.map((id) => Number(id)));
+      return filter.targetIds.some((id) => linkedSet.has(Number(id)));
+    });
+  });
+
+  lastFilteredRows = filtered;
+  pruneSelectionToCurrentRows();
   renderAdminTable(filtered);
+  renderAdminFilterSummary(filtered.length, currentRows.length);
+  updateBulkButtonState();
 }
+
+async function readApiResponse(res) {
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const json = await res.json();
+    json._status = res.status;
+    json._url = res.url;
+    json._contentType = contentType;
+    return json;
+  }
+
+  const text = await res.text();
+  return {
+    error: text || `Réponse non JSON (HTTP ${res.status})`,
+    _rawText: text,
+    _status: res.status,
+    _url: res.url,
+    _contentType: contentType,
+  };
+}
+
+function ensureBulkResponse(payload, contextLabel) {
+  if (payload && typeof payload.successCount === "number" && typeof payload.failureCount === "number") {
+    return payload;
+  }
+
+  if (payload && payload.error) {
+    const raw = String(payload._rawText || payload.error || "").trim();
+    const compact = raw.replace(/\s+/g, " ").slice(0, 180);
+    if (compact.startsWith("<!DOCTYPE") || compact.startsWith("<html")) {
+      const diagnostics = [
+        `${contextLabel}: le serveur a renvoyé une page HTML au lieu de JSON.`,
+        `URL appelée: ${payload._url || "inconnue"}`,
+        `Origine page: ${window.location.origin}`,
+        `Content-Type: ${payload._contentType || "inconnu"}`,
+      ];
+      if (window.location.hostname === "localhost" && window.location.port !== "3000") {
+        diagnostics.push("Cause probable: admin ouverte hors backend Node. Ouvre http://localhost:3000/admin.html");
+      }
+      throw new Error(diagnostics.join(" "));
+    }
+    throw new Error(`${contextLabel}: ${compact || "réponse invalide du serveur"}`);
+  }
+
+  throw new Error(`${contextLabel}: réponse bulk invalide (compteurs manquants).`);
+}
+
+function renderAdminFilterSummary(filteredCount, totalCount) {
+  const summary = document.getElementById("admin-filter-summary");
+  if (!summary) return;
+  summary.textContent = `${filteredCount} résultat(s) sur ${totalCount}. ${selectedRowIds.size} ligne(s) sélectionnée(s).`;
+}
+
+function updateAdminFilterTargetValues(id, selectEl) {
+  const filter = adminFilters.find((item) => item.id === id);
+  if (!filter || !selectEl) return;
+  filter.targetIds = Array.from(selectEl.selectedOptions).map((opt) => Number(opt.value));
+  applyAllAdminFilters();
+}
+
+async function addAdminFilterRule() {
+  if (!currentEntity) return;
+  adminFilters.push({ id: nextAdminFilterId++, kind: "date", startDate: "", endDate: "", targetType: "", targetIds: [] });
+  await renderAdminFilters();
+  applyAllAdminFilters();
+}
+
+async function renderAdminFilters() {
+  const list = document.getElementById("admin-filters-list");
+  if (!list) return;
+
+  if (adminFilters.length === 0) {
+    list.innerHTML = "<div class=\"admin-filter-row\">Aucun filtre actif.</div>";
+    initSelect2Admin();
+    return;
+  }
+
+  list.innerHTML = adminFilters
+    .map((filter) => {
+      const relationOptions = getCurrentEntityRelations()
+        .map((rel) => `<option value=\"${escapeHtml(rel.target)}\" ${rel.target === filter.targetType ? "selected" : ""}>${escapeHtml(rel.target)}</option>`)
+        .join("");
+
+      return `<div class="admin-filter-row" data-filter-id="${filter.id}">
+        <b>Filtre</b>
+        <select class="admin-filter-kind" onchange="updateAdminFilterKind(${filter.id}, this.value)">
+          <option value="date" ${filter.kind === "date" ? "selected" : ""}>Date</option>
+          <option value="link" ${filter.kind === "link" ? "selected" : ""}>Lien</option>
+        </select>
+        <span class="admin-filter-date" style="display:${filter.kind === "date" ? "inline-flex" : "none"}; gap:8px; align-items:center;">
+          <input type="date" value="${escapeHtml(filter.startDate || "")}" onchange="updateAdminFilterDate(${filter.id}, 'startDate', this.value)">
+          <span>à</span>
+          <input type="date" value="${escapeHtml(filter.endDate || "")}" onchange="updateAdminFilterDate(${filter.id}, 'endDate', this.value)">
+        </span>
+        <span class="admin-filter-link" style="display:${filter.kind === "link" ? "inline-flex" : "none"}; gap:8px; align-items:center;">
+          <select class="admin-filter-target-type" onchange="updateAdminFilterTargetType(${filter.id}, this.value)">
+            <option value="">Type lié</option>
+            ${relationOptions}
+          </select>
+          <select class="admin-filter-target-values" multiple data-filter-id="${filter.id}" onchange="updateAdminFilterTargetValues(${filter.id}, this)"></select>
+        </span>
+        <button type="button" onclick="removeAdminFilterRule(${filter.id})">Retirer</button>
+      </div>`;
+    })
+    .join("");
+
+  await populateAdminFilterTargetValues();
+  initSelect2Admin();
+}
+
+async function populateAdminFilterTargetValues() {
+  const selectors = document.querySelectorAll(".admin-filter-target-values");
+  for (const select of selectors) {
+    const filterId = Number(select.dataset.filterId);
+    const filter = adminFilters.find((item) => item.id === filterId);
+    if (!filter || filter.kind !== "link" || !filter.targetType) {
+      select.innerHTML = "";
+      continue;
+    }
+
+    const res = await fetch(`${API}/entities/${filter.targetType}`);
+    const data = await res.json();
+    const displayF = getDisplayField(filter.targetType);
+    select.innerHTML = data
+      .map((row) => {
+        const selected = filter.targetIds.includes(Number(row.ID)) ? "selected" : "";
+        return `<option value="${Number(row.ID)}" ${selected}>${escapeHtml(row[displayF] || "Sans nom")}</option>`;
+      })
+      .join("");
+  }
+}
+
+function updateAdminFilterKind(id, kind) {
+  const filter = adminFilters.find((item) => item.id === id);
+  if (!filter) return;
+  filter.kind = kind;
+  if (kind === "date") {
+    filter.targetType = "";
+    filter.targetIds = [];
+  }
+  renderAdminFilters().then(() => applyAllAdminFilters());
+}
+
+function updateAdminFilterDate(id, field, value) {
+  const filter = adminFilters.find((item) => item.id === id);
+  if (!filter) return;
+  filter[field] = value;
+  applyAllAdminFilters();
+}
+
+function updateAdminFilterTargetType(id, value) {
+  const filter = adminFilters.find((item) => item.id === id);
+  if (!filter) return;
+  filter.targetType = value;
+  filter.targetIds = [];
+  renderAdminFilters().then(() => applyAllAdminFilters());
+}
+
+function removeAdminFilterRule(id) {
+  adminFilters = adminFilters.filter((item) => item.id !== id);
+  renderAdminFilters().then(() => applyAllAdminFilters());
+}
+
+function clearAdminFilters() {
+  adminFilters = [];
+  const searchInput = document.getElementById("admin-search-input");
+  if (searchInput) searchInput.value = "";
+  renderAdminFilters().then(() => applyAllAdminFilters());
+}
+
+window.addAdminFilterRule = addAdminFilterRule;
+window.removeAdminFilterRule = removeAdminFilterRule;
+window.updateAdminFilterKind = updateAdminFilterKind;
+window.updateAdminFilterDate = updateAdminFilterDate;
+window.updateAdminFilterTargetType = updateAdminFilterTargetType;
+window.updateAdminFilterTargetValues = updateAdminFilterTargetValues;
+window.clearAdminFilters = clearAdminFilters;
 
 function showAddForm(rowData = null) {
   document.getElementById("data-table-container").style.display = "none";
@@ -743,6 +1059,278 @@ function handleLinkTargetSelectionChange() {
 }
 
 window.handleLinkTargetSelectionChange = handleLinkTargetSelectionChange;
+
+function getRelationByTarget(targetType) {
+  const relations = getCurrentEntityRelations();
+  return relations.find((rel) => rel.target === targetType) || null;
+}
+
+function toggleBulkEditor(show) {
+  const container = document.getElementById("bulk-editor-container");
+  if (!container) return;
+  if (!show) {
+    container.style.display = "none";
+    return;
+  }
+
+  if (selectedRowIds.size === 0) {
+    alert("Sélectionnez au moins une ligne dans le tableau.");
+    return;
+  }
+
+  container.style.display = "block";
+  populateBulkTargetTypes();
+  onBulkActionChanged();
+  loadBulkTargetOptions();
+  renderBulkOverrides();
+  initSelect2Admin(container);
+}
+
+function populateBulkTargetTypes() {
+  const select = document.getElementById("bulk-link-target-type");
+  if (!select) return;
+  const relations = getCurrentEntityRelations();
+  select.innerHTML = '<option value="">-- Sélectionnez un type lié --</option>' + relations
+    .map((rel) => `<option value="${escapeHtml(rel.target)}">${escapeHtml(rel.target)}</option>`)
+    .join("");
+}
+
+function onBulkActionChanged() {
+  const action = document.getElementById("bulk-action")?.value || "create";
+  const targetType = document.getElementById("bulk-link-target-type")?.value;
+  const relation = targetType ? getRelationByTarget(targetType) : null;
+  const canUseDates = relation ? tablesWithDates.has(relation.table) : false;
+  const dateFields = document.getElementById("bulk-common-date-fields");
+  const isDelete = action === "delete";
+  const descriptionInput = document.getElementById("bulk-common-description");
+
+  if (descriptionInput) descriptionInput.disabled = isDelete;
+  if (dateFields) dateFields.style.display = !isDelete && canUseDates ? "grid" : "none";
+}
+
+function canBulkRelationUseDates() {
+  const targetType = document.getElementById("bulk-link-target-type")?.value;
+  const relation = targetType ? getRelationByTarget(targetType) : null;
+  return Boolean(relation && tablesWithDates.has(relation.table));
+}
+
+async function loadBulkTargetOptions() {
+  const targetType = document.getElementById("bulk-link-target-type")?.value;
+  const targetSelect = document.getElementById("bulk-link-target-ids");
+  if (!targetSelect) return;
+
+  if (!targetType) {
+    targetSelect.innerHTML = "";
+    return;
+  }
+
+  const relation = getRelationByTarget(targetType);
+  if (!relation) {
+    targetSelect.innerHTML = "";
+    return;
+  }
+
+  const res = await fetch(`${API}/entities/${targetType}`);
+  let rows = await res.json();
+
+  if (symmetricLinkTablesClient.has(relation.table)) {
+    rows = rows.filter((row) => !selectedRowIds.has(Number(row.ID)));
+  }
+
+  const displayF = getDisplayField(targetType);
+  targetSelect.innerHTML = rows
+    .map((row) => `<option value="${Number(row.ID)}">${escapeHtml(row[displayF] || "Sans nom")} (ID ${Number(row.ID)})</option>`)
+    .join("");
+
+  onBulkActionChanged();
+  renderBulkOverrides();
+  initSelect2Admin(document.getElementById("bulk-editor-container"));
+}
+
+function renderBulkOverrides() {
+  const container = document.getElementById("bulk-overrides-container");
+  if (!container) return;
+  const selectedRows = currentRows.filter((row) => selectedRowIds.has(Number(row.ID)));
+  const allowDates = canBulkRelationUseDates();
+
+  if (selectedRows.length === 0) {
+    container.innerHTML = "<p>Aucune ligne sélectionnée.</p>";
+    return;
+  }
+
+  container.innerHTML = selectedRows
+    .map((row) => {
+      const displayLabelField = getDisplayField(currentEntity);
+      const label = row[displayLabelField] || row.titre || row.Nom || row.Titre || `ID ${row.ID}`;
+      return `<div class="bulk-override-row" data-row-id="${Number(row.ID)}">
+        <div class="row-title">${escapeHtml(String(label))} (ID ${Number(row.ID)})</div>
+        <div class="bulk-override-fields">
+          <input type="text" class="bulk-override-desc" placeholder="Description spécifique (optionnel)">
+          ${allowDates ? `
+          <input type="date" class="bulk-override-date-debut" title="Date début spécifique">
+          <select class="bulk-override-precision-debut"><option value="">Précision début commune</option><option value="Jour">Jour</option><option value="Mois">Mois</option><option value="Année">Année</option></select>
+          <input type="date" class="bulk-override-date-fin" title="Date fin spécifique">
+          <select class="bulk-override-precision-fin"><option value="">Précision fin commune</option><option value="Jour">Jour</option><option value="Mois">Mois</option><option value="Année">Année</option></select>
+          ` : ``}
+        </div>
+      </div>`;
+    })
+    .join("");
+}
+
+function collectCommonBulkFields(allowDates) {
+  const payload = {};
+  const desc = document.getElementById("bulk-common-description")?.value?.trim();
+  const dDebut = document.getElementById("bulk-common-date-debut")?.value;
+  const pDebut = document.getElementById("bulk-common-precision-debut")?.value;
+  const dFin = document.getElementById("bulk-common-date-fin")?.value;
+  const pFin = document.getElementById("bulk-common-precision-fin")?.value;
+
+  if (desc) payload.description = desc;
+  if (allowDates && dDebut) payload.Date_Debut = dDebut;
+  if (allowDates && pDebut) payload.precision_Debut = pDebut;
+  if (allowDates && dFin) payload.Date_Fin = dFin;
+  if (allowDates && pFin) payload.precision_Fin = pFin;
+  return payload;
+}
+
+function collectOverrideFieldsByRow(allowDates) {
+  const overrides = {};
+  document.querySelectorAll("#bulk-overrides-container .bulk-override-row").forEach((rowEl) => {
+    const rowId = Number(rowEl.dataset.rowId);
+    const payload = {};
+    const desc = rowEl.querySelector(".bulk-override-desc")?.value?.trim();
+    const dDebut = rowEl.querySelector(".bulk-override-date-debut")?.value;
+    const pDebut = rowEl.querySelector(".bulk-override-precision-debut")?.value;
+    const dFin = rowEl.querySelector(".bulk-override-date-fin")?.value;
+    const pFin = rowEl.querySelector(".bulk-override-precision-fin")?.value;
+
+    if (desc) payload.description = desc;
+    if (allowDates && dDebut) payload.Date_Debut = dDebut;
+    if (allowDates && pDebut) payload.precision_Debut = pDebut;
+    if (allowDates && dFin) payload.Date_Fin = dFin;
+    if (allowDates && pFin) payload.precision_Fin = pFin;
+    overrides[rowId] = payload;
+  });
+  return overrides;
+}
+
+async function submitBulkLinks() {
+  const action = document.getElementById("bulk-action")?.value;
+  const targetType = document.getElementById("bulk-link-target-type")?.value;
+  const targetSelect = document.getElementById("bulk-link-target-ids");
+  const targetIds = targetSelect ? Array.from(targetSelect.selectedOptions).map((opt) => Number(opt.value)) : [];
+
+  if (!targetType) {
+    alert("Choisissez un type lié.");
+    return;
+  }
+  if (targetIds.length === 0) {
+    alert("Choisissez au moins un élément lié.");
+    return;
+  }
+  if (selectedRowIds.size === 0) {
+    alert("Aucune ligne sélectionnée.");
+    return;
+  }
+
+  const relation = getRelationByTarget(targetType);
+  if (!relation) {
+    alert("Relation introuvable pour ce type.");
+    return;
+  }
+
+  const allowDates = tablesWithDates.has(relation.table);
+
+  const selectedIds = [...selectedRowIds].map((id) => Number(id));
+  const commonFields = collectCommonBulkFields(allowDates);
+  const overridesByRow = collectOverrideFieldsByRow(allowDates);
+
+  try {
+    if (action === "create") {
+      const rows = [];
+      selectedIds.forEach((sourceId) => {
+        targetIds.forEach((targetId) => {
+          const payload = {
+            [relation.fkSrc]: sourceId,
+            [relation.fkDest]: targetId,
+            ...commonFields,
+            ...(overridesByRow[sourceId] || {}),
+          };
+          rows.push(payload);
+        });
+      });
+
+      const res = await fetch(`${API}/links/${relation.table}/batch-create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows, atomic: false }),
+      });
+      const payload = await readApiResponse(res);
+      if (!res.ok) throw new Error(payload.error || "Création en masse impossible");
+      const result = ensureBulkResponse(payload, "Création en masse");
+
+      alert(`Création en masse terminée: ${result.successCount} succès, ${result.failureCount} échec(s).`);
+    }
+
+    if (action === "update") {
+      const rows = [];
+      selectedIds.forEach((sourceId) => {
+        targetIds.forEach((targetId) => {
+          const updates = { ...commonFields, ...(overridesByRow[sourceId] || {}) };
+          if (Object.keys(updates).length === 0) return;
+          rows.push({ keys: { [relation.fkSrc]: sourceId, [relation.fkDest]: targetId }, updates });
+        });
+      });
+
+      if (rows.length === 0) {
+        alert("Aucune modification à appliquer.");
+        return;
+      }
+
+      const res = await fetch(`${API}/links/${relation.table}/batch-update`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows, atomic: false }),
+      });
+      const payload = await readApiResponse(res);
+      if (!res.ok) throw new Error(payload.error || "Mise à jour en masse impossible");
+      const result = ensureBulkResponse(payload, "Mise à jour en masse");
+
+      alert(`Mise à jour en masse terminée: ${result.successCount} succès, ${result.failureCount} échec(s).`);
+    }
+
+    if (action === "delete") {
+      const rows = [];
+      selectedIds.forEach((sourceId) => {
+        targetIds.forEach((targetId) => {
+          rows.push({ keys: { [relation.fkSrc]: sourceId, [relation.fkDest]: targetId } });
+        });
+      });
+
+      const res = await fetch(`${API}/links/${relation.table}/batch-delete`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows, atomic: false }),
+      });
+      const payload = await readApiResponse(res);
+      if (!res.ok) throw new Error(payload.error || "Suppression en masse impossible");
+      const result = ensureBulkResponse(payload, "Suppression en masse");
+
+      alert(`Suppression en masse terminée: ${result.successCount} succès, ${result.failureCount} échec(s).`);
+    }
+
+    await loadEntity(currentEntity);
+    toggleBulkEditor(false);
+  } catch (err) {
+    alert(`Erreur édition de masse: ${err.message}`);
+  }
+}
+
+window.toggleBulkEditor = toggleBulkEditor;
+window.onBulkActionChanged = onBulkActionChanged;
+window.loadBulkTargetOptions = loadBulkTargetOptions;
+window.submitBulkLinks = submitBulkLinks;
 
 function setImportStatus(message, isError = false) {
   const statusEl = document.getElementById("import-backup-status");

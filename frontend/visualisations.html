@@ -11,9 +11,6 @@
         <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
         <link rel="stylesheet" href="css/visualisations.css">
     
-    <!-- Tabulator CSS (Vanilla JS DataTables equivalent) -->
-    <link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator.min.css" rel="stylesheet">
-    
     <!-- Vis.js Timeline CSS -->
     <link href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
 
@@ -39,38 +36,15 @@
         
 
         <div class="vis-nav">
-            <button onclick="showVis('tableur')">Tableur Dynamique</button>
             <button onclick="showVis('timeline')">Frise Temporelle</button>
             <button onclick="showVis('sequential')">Frise Séquentielle</button>
             <button onclick="showVis('carte')">Carte Interactive</button>
             <button onclick="showVis('reseau')">Réseau Dynamique</button>
         </div>
 
-        <!-- SECTION: TABLEUR -->
-        <section id="vis-tableur" class="vis-section active">
-            <h2>Tableur de la Base de Données</h2>
-            <div class="vis-link-filters filters-container"></div>
-            <!-- Global filters -->
-            <div class="filters-container">
-                <label>Filtres globaux :</label>
-                <select id="filter-entity" onchange="loadTableData()">
-                    <option value="Evenement" selected>Évènements</option>
-                    <option value="Personnages">Personnages</option>
-                    <option value="Lieu">Lieux</option>
-                    <option value="Entite_politique">Entités Politiques</option>
-                </select>
-                <input type="text" id="filter-text" placeholder="Rechercher (titre, description...)" onkeyup="applyFilters()">
-                <button onclick="clearFilters()">Réinitialiser les filtres</button>
-            </div>
-
-            <!-- Validation/Table container for Tabulator -->
-            <div id="data-table"></div>
-        </section>
-
         <!-- SECTION: TIMELINE -->
-        <section id="vis-timeline" class="vis-section">
+        <section id="vis-timeline" class="vis-section active">
             <h2>Frise Temporelle</h2>
-            <div class="vis-link-filters filters-container"></div>
             
             <div class="filters-container">
                 <label>Afficher :</label>
@@ -87,7 +61,6 @@
         <!-- SECTION: SEQUENTIAL -->
         <section id="vis-sequential" class="vis-section">
             <h2>Frise Séquentielle</h2>
-            <div class="vis-link-filters filters-container"></div>
             
             <div class="filters-container">
                 <label>Afficher :</label>
@@ -105,14 +78,12 @@
         <!-- (Other sections will be implemented next) -->
         <section id="vis-carte" class="vis-section">
             <h2>Carte des Lieux & Évènements</h2>
-            <div class="vis-link-filters filters-container"></div>
             <div id="map-container"></div>
         </section>
         
         <!-- SECTION: RESEAU NETWORK -->
         <section id="vis-reseau" class="vis-section">
             <h2>Graphe des Connexions</h2>
-            <div class="vis-link-filters filters-container"></div>
             <div class="filters-container">
                 <label>Filtrer les Noeuds :</label>
                 <label><input type="checkbox" id="net-check-ev" checked onchange="loadNetworkData()"> Évènements</label>
@@ -126,7 +97,6 @@
     </main>
 
     <!-- External Libraries Scripts -->
-    <script type="text/javascript" src="https://unpkg.com/tabulator-tables@5.5.0/dist/js/tabulator.min.js"></script>
     <script type="text/javascript" src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -134,8 +104,6 @@
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     
     <!-- Custom Scripts -->
-    <script src="js/filters.js"></script>
-    <script src="js/tableur.js"></script>
     <script src="js/tooltip.js"></script>
     <script src="js/timeline.js"></script>
     <script src="js/sequential.js"></script>

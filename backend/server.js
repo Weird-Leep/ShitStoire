@@ -224,6 +224,10 @@ app.post('/api/import', requireAdmin, importUpload.single('backupZip'), (req, re
     }
 });
 
+app.use('/api', (req, res) => {
+    res.status(404).json({ error: 'API route not found.' });
+});
+
 // Fallback to index.html
 app.use((req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/index.html'));

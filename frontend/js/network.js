@@ -12,7 +12,7 @@ const TYPES = {
 };
 
 async function fetchJSON(url) {
-    const res = await fetch(API + url);
+    const res = await fetch(NET_API + url);
     return await res.json();
 }
 
@@ -178,7 +178,11 @@ function buildNetworkItems(events, persons, lieux, politics) {
 }
 
 function initNetwork() {
-    if (networkInstance) return;
+    if (networkInstance) {
+        loadNetworkData();
+        networkInstance.redraw();
+        return;
+    }
 
     const container = document.getElementById("network-container");
     const data = {
@@ -235,13 +239,6 @@ async function loadNetworkData() {
     if (sPe) persons = await fetchJSON("/entities/Personnages");
     if (sLi) lieux = await fetchJSON("/entities/Lieu");
     if (sEp) politics = await fetchJSON("/entities/Entite_politique");
-
-    if (typeof filterEntities === "function") {
-        events = filterEntities(events, "Evenement");
-        persons = filterEntities(persons, "Personnages");
-        lieux = filterEntities(lieux, "Lieu");
-        politics = filterEntities(politics, "Entite_politique");
-    }
 
     const { nodesArr, edgesArr } = buildNetworkItems(events, persons, lieux, politics);
     nodesDataSet.add(nodesArr);
@@ -329,7 +326,3 @@ async function loadNetworkData() {
 
 window.initNetwork = initNetwork;
 window.loadNetworkData = loadNetworkData;
-
-document.addEventListener("DOMContentLoaded", () => {
-    initNetwork();
-});

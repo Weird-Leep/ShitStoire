@@ -46,6 +46,56 @@
                 <div class="management-toolbar">
                     <button id="btn-add-new" style="display:none;" onclick="showAddForm()">Ajouter</button>
                     <input type="text" id="admin-search-input" style="display:none;" placeholder="Rechercher... (Nom, Description, etc.)" oninput="filterAdminTable()">
+                    <button id="btn-add-filter" style="display:none;" type="button" onclick="addAdminFilterRule()">Ajouter un filtre</button>
+                    <button id="btn-clear-filters" style="display:none;" type="button" onclick="clearAdminFilters()">Réinitialiser filtres</button>
+                    <button id="btn-bulk-link" style="display:none;" type="button" onclick="toggleBulkEditor(true)">Édition de liens en masse</button>
+                </div>
+
+                <div id="admin-filters-panel" style="display:none;">
+                    <div id="admin-filters-list"></div>
+                    <div id="admin-filter-summary"></div>
+                </div>
+
+                <div id="bulk-editor-container" style="display:none;">
+                    <h3>Édition de liens en masse</h3>
+                    <div class="bulk-editor-grid">
+                        <label for="bulk-action">Action</label>
+                        <select id="bulk-action" onchange="onBulkActionChanged()">
+                            <option value="create">Créer des liens</option>
+                            <option value="update">Modifier des liens</option>
+                            <option value="delete">Supprimer des liens</option>
+                        </select>
+
+                        <label for="bulk-link-target-type">Type lié</label>
+                        <select id="bulk-link-target-type" onchange="loadBulkTargetOptions()"></select>
+
+                        <label for="bulk-link-target-ids">Éléments liés</label>
+                        <select id="bulk-link-target-ids" multiple></select>
+
+                        <label for="bulk-common-description">Description commune</label>
+                        <input type="text" id="bulk-common-description" placeholder="Optionnel">
+
+                        <div id="bulk-common-date-fields" class="bulk-date-fields">
+                            <label for="bulk-common-date-debut">Date début</label>
+                            <input type="date" id="bulk-common-date-debut">
+                            <label for="bulk-common-precision-debut">Précision début</label>
+                            <select id="bulk-common-precision-debut"><option value="Jour">Jour</option><option value="Mois">Mois</option><option value="Année">Année</option></select>
+                            <label for="bulk-common-date-fin">Date fin</label>
+                            <input type="date" id="bulk-common-date-fin">
+                            <label for="bulk-common-precision-fin">Précision fin</label>
+                            <select id="bulk-common-precision-fin"><option value="Jour">Jour</option><option value="Mois">Mois</option><option value="Année">Année</option></select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4>Surcharges par ligne sélectionnée</h4>
+                        <div id="bulk-overrides-container"></div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" onclick="submitBulkLinks()">Appliquer en masse</button>
+                        <button type="button" onclick="toggleBulkEditor(false)">Fermer</button>
+                    </div>
                 </div>
 
                 <div id="data-table-container">

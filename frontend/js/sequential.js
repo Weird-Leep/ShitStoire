@@ -26,12 +26,6 @@ async function loadSequentialData() {
         fetch(`${SEQ_API}/entities/Entite_politique`).then(r => r.json())
     ]);
 
-    if (typeof filterEntities === 'function') {
-        events = filterEntities(events, 'Evenement');
-        persons = filterEntities(persons, 'Personnages');
-        politics = filterEntities(politics, 'Entite_politique');
-    }
-
     if (showEv) {
         events.forEach(e => {
             const start = parseDateStrSeq(e.Date_Debut);

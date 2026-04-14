@@ -12,10 +12,6 @@ async function loadMapData() {
         fetch(`${MAP_API}/links/Lien_personnage_lieux`).then(r => r.json())
     ]);
 
-    if (typeof filterEntities === 'function') {
-        lieux = filterEntities(lieux, 'Lieu');
-    }
-    
     return { lieux, events, persons, relEvLieu, relPersLieu };
 }
 

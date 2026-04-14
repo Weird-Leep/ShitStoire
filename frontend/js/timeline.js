@@ -33,12 +33,6 @@ async function loadTimelineData() {
         fetch(`${TL_API}/entities/Entite_politique`).then(r => r.json())
     ]);
 
-    if (typeof filterEntities === 'function') {
-        events = filterEntities(events, 'Evenement');
-        persons = filterEntities(persons, 'Personnages');
-        politics = filterEntities(politics, 'Entite_politique');
-    }
-
     if (showEv) {
         groupsData.push({ id: 'ev-short', content: 'Évènements courts', order: 2 });
         groupsData.push({ id: 'ev-long', content: 'Évènements longs', order: 1 });

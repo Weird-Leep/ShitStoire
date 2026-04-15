@@ -375,19 +375,9 @@ main {
     margin-bottom: 3px;
 }
 
-#timeline-container,
-#map-container,
-#network-container {
-    border: 1px solid #cfddee;
-    border-radius: 12px;
-    background: #ffffff;
-    overflow: hidden;
-}
-
 #timeline-container {
     min-height: 700px;
-    height: 72vh;
-    max-height: 980px;
+    height: auto;
 }
 
 #map-container {
@@ -471,8 +461,7 @@ main {
 
     #timeline-container {
         min-height: 520px;
-        height: 68vh;
-        max-height: 760px;
+        height: auto;
     }
 
     #map-container,
@@ -507,8 +496,7 @@ main {
 
     #timeline-container {
         min-height: 360px;
-        height: 60vh;
-        max-height: 560px;
+        height: auto;
     }
 
     #map-container,

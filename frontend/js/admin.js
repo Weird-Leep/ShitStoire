@@ -10,6 +10,9 @@ let selectedRowIds = new Set();
 let adminFilters = [];
 let nextAdminFilterId = 1;
 let lastFilteredRows = [];
+let isMobileEntityNavOpen = false;
+
+const mobileEntityNavMedia = window.matchMedia("(max-width: 640px)");
 
 const tablesWithDates = new Set([
   "Lien_personnage_fonctions",
@@ -315,6 +318,10 @@ async function loadEntity(entity) {
   renderAdminFilters();
   applyAllAdminFilters();
   updateBulkButtonState();
+
+  if (mobileEntityNavMedia.matches) {
+    setMobileEntityNavOpen(false);
+  }
 }
 
 function compareValues(a, b, fieldName) {
@@ -1386,10 +1393,52 @@ async function handleBackupImport(event) {
   }
 }
 
+function setMobileEntityNavOpen(open) {
+  const sidebar = document.querySelector(".sidebar");
+  const toggleBtn = document.getElementById("entity-nav-toggle");
+  if (!sidebar || !toggleBtn) return;
+
+  isMobileEntityNavOpen = Boolean(open);
+  sidebar.classList.toggle("is-mobile-nav-open", isMobileEntityNavOpen);
+  toggleBtn.setAttribute("aria-expanded", isMobileEntityNavOpen ? "true" : "false");
+}
+
+function syncMobileEntityNavMode() {
+  const sidebar = document.querySelector(".sidebar");
+  const toggleBtn = document.getElementById("entity-nav-toggle");
+  if (!sidebar || !toggleBtn) return;
+
+  if (mobileEntityNavMedia.matches) {
+    setMobileEntityNavOpen(isMobileEntityNavOpen);
+  } else {
+    sidebar.classList.remove("is-mobile-nav-open");
+    toggleBtn.setAttribute("aria-expanded", "false");
+  }
+}
+
+function initMobileEntityNavToggle() {
+  const toggleBtn = document.getElementById("entity-nav-toggle");
+  if (!toggleBtn) return;
+
+  toggleBtn.addEventListener("click", () => {
+    if (!mobileEntityNavMedia.matches) return;
+    setMobileEntityNavOpen(!isMobileEntityNavOpen);
+  });
+
+  if (typeof mobileEntityNavMedia.addEventListener === "function") {
+    mobileEntityNavMedia.addEventListener("change", syncMobileEntityNavMode);
+  } else if (typeof mobileEntityNavMedia.addListener === "function") {
+    mobileEntityNavMedia.addListener(syncMobileEntityNavMode);
+  }
+
+  syncMobileEntityNavMode();
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   const isAuthorized = await ensureAdminSession();
   if (!isAuthorized) return;
 
+  initMobileEntityNavToggle();
   initSelect2Admin();
 
   const importForm = document.getElementById("import-backup-form");

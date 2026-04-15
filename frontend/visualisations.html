@@ -51,7 +51,18 @@
                 <label><input type="checkbox" id="check-ev" checked onchange="reloadTimeline()"> Évènements</label>
                 <label><input type="checkbox" id="check-pe" checked onchange="reloadTimeline()"> Personnages</label>
                 <label><input type="checkbox" id="check-ep" checked onchange="reloadTimeline()"> Entités Politiques</label>
-                <button onclick="timelineInstance.fit()">Recentrer la frise</button>
+                <button onclick="fitTimeline()">Recentrer la frise</button>
+            </div>
+
+            <div class="timeline-filter-panel">
+                <div class="timeline-filter-panel-header">
+                    <h3>Filtres avancés de la frise</h3>
+                    <div class="timeline-filter-panel-actions">
+                        <button type="button" onclick="addTimelineFilter()">Ajouter un filtre</button>
+                        <button type="button" onclick="clearTimelineFilters()">Vider les filtres</button>
+                    </div>
+                </div>
+                <div id="timeline-filter-list" class="timeline-filter-list"></div>
             </div>
 
             <!-- Vis.js Timeline Container -->

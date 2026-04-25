@@ -49,6 +49,7 @@
                     <input type="text" id="admin-search-input" style="display:none;" placeholder="Rechercher... (Nom, Description, etc.)" oninput="filterAdminTable()">
                     <button id="btn-add-filter" style="display:none;" type="button" onclick="addAdminFilterRule()">Ajouter un filtre</button>
                     <button id="btn-clear-filters" style="display:none;" type="button" onclick="clearAdminFilters()">Réinitialiser filtres</button>
+                    <button id="btn-bulk-create" style="display:none;" type="button" onclick="toggleBulkCreate(true)">Ajout de masse</button>
                     <button id="btn-bulk-link" style="display:none;" type="button" onclick="toggleBulkEditor(true)">Édition de liens en masse</button>
                 </div>
 
@@ -99,6 +100,32 @@
                     </div>
                 </div>
 
+                <div id="bulk-create-container" style="display:none;">
+                    <h3>Ajout de masse</h3>
+                    <p>Crée plusieurs entités de types différents, puis prépare les liens via des sélecteurs guidés (drafts et existants).</p>
+                    <p><small>Note: la création d'images en masse n'est pas supportée ici. Tu peux toutefois lier des images existantes.</small></p>
+
+                    <div class="bulk-create-actions">
+                        <button type="button" onclick="addBulkCreateGroup()">Ajouter un groupe d'entités</button>
+                    </div>
+
+                    <div class="bulk-create-section">
+                        <h4>Entités à créer</h4>
+                        <div id="bulk-create-groups"></div>
+                    </div>
+
+                    <div class="bulk-create-section">
+                        <h4>Validation</h4>
+                        <div id="bulk-create-errors"></div>
+                        <div id="bulk-create-summary"></div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button id="bulk-create-submit" type="button" onclick="submitBulkCreate()">Créer en masse</button>
+                        <button type="button" onclick="toggleBulkCreate(false)">Fermer</button>
+                    </div>
+                </div>
+
                 <div id="data-table-container">
                     <table id="data-table">
                         <thead><tr id="table-headers"></tr></thead>
@@ -124,6 +151,10 @@
                             <div>
                                 <select id="link-target-type" onchange="loadLinkTargets()"></select>
                                 <span> avec </span>
+                                <select id="link-target-mode" onchange="loadLinkTargets()" style="display: none;">
+                                    <option value="draft">Draft (en cours de création)</option>
+                                    <option value="existing" selected>Existant</option>
+                                </select>
                                 <select id="link-target-id" onchange="handleLinkTargetSelectionChange()"></select>
                                 <input type="text" id="link-description" placeholder="Description courte (ex: commanditaire)">
                             </div>

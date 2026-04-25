@@ -217,6 +217,14 @@ header nav a.active {
     gap: 8px;
 }
 
+.hit-error {
+    border-color: #d93d3d !important;
+    background-color: #fff1f1 !important;
+}
+.hit-error:focus {
+    box-shadow: 0 0 0 3px rgba(217, 61, 61, 0.25) !important;
+}
+
 .admin-filter-row {
     display: flex;
     flex-wrap: wrap;
@@ -259,6 +267,142 @@ header nav a.active {
     border-radius: 14px;
     background: #ffffff;
     padding: 12px;
+}
+
+#bulk-create-container {
+    margin-bottom: 14px;
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
+    background: #ffffff;
+    padding: 12px;
+}
+
+.bulk-create-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.bulk-create-actions button,
+.bulk-create-group button,
+.bulk-create-link-row button {
+    border: 0;
+    border-radius: 10px;
+    padding: 8px 10px;
+    background: #e8f1ff;
+    color: #173f73;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.bulk-create-section {
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    background: #f9fbff;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.bulk-create-section h4,
+.bulk-create-group-fields h5 {
+    margin: 0 0 10px;
+}
+
+.bulk-create-group,
+.bulk-create-link-row {
+    border: 1px solid #dfe8f5;
+    border-radius: 12px;
+    background: #ffffff;
+    padding: 10px;
+    margin-bottom: 10px;
+    display: grid;
+    gap: 10px;
+}
+
+.bulk-create-group-head,
+.bulk-create-link-head,
+.bulk-create-row-head {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+    align-items: end;
+}
+
+.bulk-create-grid-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 8px;
+}
+
+.bulk-create-grid-fields label,
+.bulk-create-link-ref-grid label,
+.bulk-create-row-head label,
+.bulk-create-group-head label {
+    font-size: 0.85rem;
+    color: var(--admin-text-muted);
+    display: block;
+    margin-bottom: 4px;
+}
+
+.bulk-create-grid-fields input,
+.bulk-create-grid-fields textarea,
+.bulk-create-grid-fields select,
+.bulk-create-row-head input,
+.bulk-create-group-head select,
+.bulk-create-link-head select,
+.bulk-create-link-ref-grid select {
+    width: 100%;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--admin-border-strong);
+    border-radius: 10px;
+    font-family: inherit;
+}
+
+.bulk-create-grid-fields textarea {
+    min-height: 80px;
+}
+
+.bulk-create-entity-list {
+    display: grid;
+    gap: 8px;
+}
+
+.bulk-create-entity-row {
+    border: 1px dashed var(--admin-border-strong);
+    border-radius: 10px;
+    padding: 8px;
+    background: #fcfdff;
+    display: grid;
+    gap: 8px;
+}
+
+.bulk-create-link-ref-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 8px;
+}
+
+#bulk-create-errors {
+    color: var(--admin-danger);
+}
+
+#bulk-create-errors ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.bulk-create-ok {
+    color: var(--admin-success);
+    margin: 0;
+    font-weight: 700;
+}
+
+#bulk-create-summary {
+    margin-top: 8px;
+    color: var(--admin-text-muted);
+    font-size: 0.9rem;
 }
 
 .bulk-editor-grid {
@@ -529,6 +673,7 @@ header nav a.active {
     #admin-search-input,
     #btn-add-filter,
     #btn-clear-filters,
+    #btn-bulk-create,
     #btn-bulk-link {
         width: 100%;
     }

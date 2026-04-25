@@ -22,6 +22,35 @@ const tablesWithDates = new Set([
   "Lien_entite_politique_entite_politique",
 ]);
 
+const LINK_TABLE_LABELS = {
+  Lien_image_evenement: "Image ↔ Évènement",
+  Lien_image_personnage: "Image ↔ Personnage",
+  Lien_image_fonctions: "Image ↔ Fonctions",
+  Lien_image_tags: "Image ↔ Tags",
+  Lien_image_lieu: "Image ↔ Lieu",
+  Lien_image_entite_politique: "Image ↔ Entité Politique",
+  Lien_image_source: "Image ↔ Source",
+  Lien_evenement_personnage: "Évènement ↔ Personnage",
+  Lien_evenement_lieux: "Évènement ↔ Lieux",
+  Lien_evenement_tags: "Évènement ↔ Tags",
+  Lien_evenement_sources: "Évènement ↔ Sources",
+  Lien_evenement_entite_politique: "Évènement ↔ Entité Politique",
+  Lien_personnage_fonctions: "Personnage ↔ Fonctions",
+  Lien_personnage_lieux: "Personnage ↔ Lieux",
+  Lien_personnage_sources: "Personnage ↔ Sources",
+  Lien_personnage_personnage: "Personnage ↔ Personnage",
+  Lien_lieu_entite_politique: "Lieu ↔ Entité Politique",
+  Lien_lieu_sources: "Lieu ↔ Sources",
+  Lien_personnage_entite_politique: "Personnage ↔ Entité Politique",
+  Lien_evenement_evenement: "Évènement ↔ Évènement",
+  Lien_fonctions_entite_politique: "Fonctions ↔ Entité Politique",
+  Lien_fonctions_sources: "Fonctions ↔ Sources",
+  Lien_personnage_tags: "Personnage ↔ Tags",
+  Lien_entite_politique_tags: "Entité Politique ↔ Tags",
+  Lien_entite_politique_sources: "Entité Politique ↔ Sources",
+  Lien_entite_politique_entite_politique: "Entité Politique ↔ Entité Politique"
+};
+
 const datedTablesWithRowIdDelete = new Set([
   "Lien_personnage_fonctions",
   "Lien_personnage_lieux",
@@ -29,6 +58,264 @@ const datedTablesWithRowIdDelete = new Set([
   "Lien_fonctions_entite_politique",
   "Lien_entite_politique_entite_politique",
 ]);
+
+const bulkCreateLinkTableConfig = {
+  Lien_image_evenement: { fkSrc: "ID_image", fkDest: "ID_evenement" },
+  Lien_image_personnage: { fkSrc: "ID_image", fkDest: "ID_personnage" },
+  Lien_image_fonctions: { fkSrc: "ID_image", fkDest: "ID_fonctions" },
+  Lien_image_tags: { fkSrc: "ID_image", fkDest: "ID_tags" },
+  Lien_image_lieu: { fkSrc: "ID_image", fkDest: "ID_lieu" },
+  Lien_image_entite_politique: { fkSrc: "ID_image", fkDest: "ID_entite_politique" },
+  Lien_image_source: { fkSrc: "ID_image", fkDest: "ID_source" },
+  Lien_evenement_personnage: { fkSrc: "ID_evenement", fkDest: "ID_personnage" },
+  Lien_evenement_lieux: { fkSrc: "ID_evenement", fkDest: "ID_lieux" },
+  Lien_evenement_tags: { fkSrc: "ID_evenement", fkDest: "ID_tags" },
+  Lien_evenement_sources: { fkSrc: "ID_evenement", fkDest: "ID_sources" },
+  Lien_evenement_entite_politique: { fkSrc: "ID_evenement", fkDest: "ID_entite_politique" },
+  Lien_personnage_fonctions: { fkSrc: "ID_personnage", fkDest: "ID_fonctions" },
+  Lien_personnage_lieux: { fkSrc: "ID_personnage", fkDest: "ID_lieux" },
+  Lien_personnage_sources: { fkSrc: "ID_personnage", fkDest: "ID_sources" },
+  Lien_personnage_personnage: { fkSrc: "ID_personnage_A", fkDest: "ID_personnage_B" },
+  Lien_lieu_entite_politique: { fkSrc: "ID_lieu", fkDest: "ID_entite_politique" },
+  Lien_lieu_sources: { fkSrc: "ID_lieu", fkDest: "ID_sources" },
+  Lien_personnage_entite_politique: { fkSrc: "ID_personnage", fkDest: "ID_entite_politique" },
+  Lien_evenement_evenement: { fkSrc: "ID_evenement_A", fkDest: "ID_evenement_B" },
+  Lien_fonctions_entite_politique: { fkSrc: "ID_fonctions", fkDest: "ID_entite_politique" },
+  Lien_fonctions_sources: { fkSrc: "ID_fonctions", fkDest: "ID_sources" },
+  Lien_personnage_tags: { fkSrc: "ID_personnage", fkDest: "ID_tags" },
+  Lien_entite_politique_tags: { fkSrc: "ID_entite_politique", fkDest: "ID_tags" },
+  Lien_entite_politique_sources: { fkSrc: "ID_entite_politique", fkDest: "ID_sources" },
+  Lien_entite_politique_entite_politique: { fkSrc: "ID_entite_politique_A", fkDest: "ID_entite_politique_B" },
+};
+
+let bulkCreateGroups = [];
+let bulkCreateLinks = [];
+let nextBulkCreateGroupId = 1;
+let nextBulkCreateEntityId = 1;
+let nextBulkCreateLinkId = 1;
+let nextBulkCreateGroupLinkId = 1;
+let bulkCreateEntityOptionsCache = {};
+let bulkCreateValidationErrors = [];
+
+const adminViewStateStorageKey = "shitstoire.adminViewState.v1";
+
+let linkDateFieldsTouched = false;
+let linkTargetRowsCache = {};
+
+function cloneAdminFilters(filters) {
+  return (Array.isArray(filters) ? filters : []).map((filter) => ({
+    ...filter,
+    targetIds: Array.isArray(filter.targetIds) ? [...filter.targetIds] : [],
+  }));
+}
+
+function readAdminViewState() {
+  try {
+    const raw = window.localStorage.getItem(adminViewStateStorageKey);
+    if (!raw) return { version: 1, lastEntity: null, entities: {} };
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || parsed.version !== 1) {
+      return { version: 1, lastEntity: null, entities: {} };
+    }
+
+    parsed.entities = parsed.entities && typeof parsed.entities === "object" ? parsed.entities : {};
+    return parsed;
+  } catch (err) {
+    return { version: 1, lastEntity: null, entities: {} };
+  }
+}
+
+function writeAdminViewState(state) {
+  try {
+    window.localStorage.setItem(adminViewStateStorageKey, JSON.stringify(state));
+  } catch (err) {}
+}
+
+function persistAdminViewState() {
+  if (!currentEntity) return;
+
+  const state = readAdminViewState();
+  state.version = 1;
+  state.lastEntity = currentEntity;
+  state.entities = state.entities && typeof state.entities === "object" ? state.entities : {};
+  state.entities[currentEntity] = {
+    filters: cloneAdminFilters(adminFilters),
+    search: document.getElementById("admin-search-input")?.value || "",
+    sortState: { ...sortState },
+  };
+
+  writeAdminViewState(state);
+}
+
+function restoreAdminViewState(entity) {
+  const state = readAdminViewState();
+  const entityState = state.entities?.[entity] || null;
+
+  if (!entityState) {
+    adminFilters = [];
+    nextAdminFilterId = 1;
+    sortState = { field: null, dir: "asc" };
+    const searchInput = document.getElementById("admin-search-input");
+    if (searchInput) searchInput.value = "";
+    return;
+  }
+
+  adminFilters = cloneAdminFilters(entityState.filters);
+  nextAdminFilterId = adminFilters.reduce((max, filter) => Math.max(max, Number(filter.id) || 0), 0) + 1;
+  sortState = entityState.sortState && typeof entityState.sortState === "object"
+    ? { field: entityState.sortState.field || null, dir: entityState.sortState.dir === "desc" ? "desc" : "asc" }
+    : { field: null, dir: "asc" };
+
+  const searchInput = document.getElementById("admin-search-input");
+  if (searchInput) searchInput.value = entityState.search || "";
+}
+
+function markLinkDateFieldsTouched() {
+  linkDateFieldsTouched = true;
+}
+
+function resetLinkDateFieldsTouched() {
+  linkDateFieldsTouched = false;
+}
+
+function bindLinkDateTouchTracking() {
+  ["link-date-debut", "link-date-fin", "link-precision-debut", "link-precision-fin"].forEach((id) => {
+    const field = document.getElementById(id);
+    if (!field) return;
+    field.addEventListener("input", markLinkDateFieldsTouched);
+    field.addEventListener("change", markLinkDateFieldsTouched);
+  });
+}
+
+function getPoliticalEntityDateRangeFromValues(values) {
+  if (!values) return null;
+
+  return {
+    start: values.Date_Debut || "",
+    precisionStart: values.precision_Debut || getDefaultPrecision(),
+    end: values.Date_Fin || "",
+    precisionEnd: values.precision_Fin || getDefaultPrecision(),
+  };
+}
+
+function getCurrentPoliticalEntityDateRange() {
+  if (currentEntity !== "Entite_politique") return null;
+
+  return getPoliticalEntityDateRangeFromValues({
+    Date_Debut: document.getElementById("input_Date_Debut")?.value || "",
+    precision_Debut: document.getElementById("input_precision_Debut")?.value || getDefaultPrecision(),
+    Date_Fin: document.getElementById("input_Date_Fin")?.value || "",
+    precision_Fin: document.getElementById("input_precision_Fin")?.value || getDefaultPrecision(),
+  });
+}
+
+function getPoliticalEntityDateRangeFromRow(row) {
+  if (!row) return null;
+  return getPoliticalEntityDateRangeFromValues(row);
+}
+
+function compareDateStrings(a, b) {
+  const aDate = parseDateOrNull(a);
+  const bDate = parseDateOrNull(b);
+  if (!aDate && !bDate) return 0;
+  if (!aDate) return -1;
+  if (!bDate) return 1;
+  return aDate.getTime() - bDate.getTime();
+}
+
+function buildPoliticalLinkDateSuggestion(currentRange, targetRange) {
+  if (!currentRange && !targetRange) return null;
+
+  if (!currentRange) return targetRange;
+  if (!targetRange) return currentRange;
+
+  const startCandidates = [currentRange.start, targetRange.start].filter(Boolean);
+  const endCandidates = [currentRange.end, targetRange.end].filter(Boolean);
+
+  const start = startCandidates.reduce((best, candidate) => {
+    if (!best) return candidate;
+    return compareDateStrings(candidate, best) > 0 ? candidate : best;
+  }, "");
+
+  const end = endCandidates.reduce((best, candidate) => {
+    if (!best) return candidate;
+    return compareDateStrings(candidate, best) < 0 ? candidate : best;
+  }, "");
+
+  if (start && end && compareDateStrings(start, end) > 0) {
+    return currentRange;
+  }
+
+  const precisionStart = start === currentRange.start
+    ? currentRange.precisionStart
+    : targetRange.precisionStart;
+  const precisionEnd = end === currentRange.end
+    ? currentRange.precisionEnd
+    : targetRange.precisionEnd;
+
+  return {
+    start,
+    precisionStart: precisionStart || getDefaultPrecision(),
+    end,
+    precisionEnd: precisionEnd || getDefaultPrecision(),
+  };
+}
+
+function applyLinkDateSuggestion(range) {
+  const dateDebut = document.getElementById("link-date-debut");
+  const dateFin = document.getElementById("link-date-fin");
+  const precisionDebut = document.getElementById("link-precision-debut");
+  const precisionFin = document.getElementById("link-precision-fin");
+
+  if (!dateDebut || !dateFin || !precisionDebut || !precisionFin || !range) return;
+  if (linkDateFieldsTouched) return;
+
+  dateDebut.value = range.start || "";
+  dateFin.value = range.end || "";
+  precisionDebut.value = range.precisionStart || getDefaultPrecision();
+  precisionFin.value = range.precisionEnd || getDefaultPrecision();
+}
+
+function refreshLinkDateSuggestion() {
+  const targetType = document.getElementById("link-target-type")?.value;
+  const targetId = document.getElementById("link-target-id")?.value;
+  if (!targetType || !targetId) return;
+
+  const relation = getRelationByTarget(targetType);
+  if (!relation || !tablesWithDates.has(relation.table)) return;
+
+  const targetRow = (linkTargetRowsCache[targetType] || []).find((row) => String(row.ID) === String(targetId));
+  const targetRange = targetType === "Entite_politique" ? getPoliticalEntityDateRangeFromRow(targetRow) : null;
+  const currentRange = getCurrentPoliticalEntityDateRange();
+
+  if (currentEntity === "Entite_politique" && targetType === "Entite_politique") {
+    applyLinkDateSuggestion(buildPoliticalLinkDateSuggestion(currentRange, targetRange));
+    return;
+  }
+
+  if (currentEntity === "Entite_politique") {
+    applyLinkDateSuggestion(currentRange);
+    return;
+  }
+
+  if (targetType === "Entite_politique") {
+    applyLinkDateSuggestion(targetRange);
+  }
+}
+
+function resetLinkDateFields() {
+  const dateDebut = document.getElementById("link-date-debut");
+  const dateFin = document.getElementById("link-date-fin");
+  const precisionDebut = document.getElementById("link-precision-debut");
+  const precisionFin = document.getElementById("link-precision-fin");
+
+  if (dateDebut) dateDebut.value = "";
+  if (dateFin) dateFin.value = "";
+  if (precisionDebut) precisionDebut.value = getDefaultPrecision();
+  if (precisionFin) precisionFin.value = getDefaultPrecision();
+  resetLinkDateFieldsTouched();
+}
 
 async function ensureAdminSession() {
   try {
@@ -57,7 +344,7 @@ function initSelect2Admin(scope = document) {
   const $ = window.jQuery;
   const $scope = $(scope);
   const targets = $scope.find(
-    "#link-target-type, #link-target-id, .admin-filter-kind, .admin-filter-target-type, .admin-filter-target-values, #bulk-link-target-type, #bulk-link-target-ids",
+    "#link-target-type, #link-target-id, .admin-filter-kind, .admin-filter-target-type, .admin-filter-target-values, #bulk-link-target-type, #bulk-link-target-ids, .bulk-create-entity-table, .bulk-create-link-table, .bulk-create-ref-mode, .bulk-create-ref-select",
   );
 
   targets.each(function () {
@@ -101,6 +388,7 @@ function clearLinkTransientFields(resetTarget = false) {
   if (dateFin) dateFin.value = "";
   if (precisionDebut) precisionDebut.value = getDefaultPrecision();
   if (precisionFin) precisionFin.value = getDefaultPrecision();
+  resetLinkDateFieldsTouched();
   if (resetTarget && targetId) targetId.innerHTML = '<option value="">-- Sélectionnez un élément --</option>';
 }
 
@@ -240,12 +528,14 @@ const schemas = {
 };
 
 async function loadEntity(entity) {
+  const entityChanged = currentEntity !== entity;
   currentEntity = entity;
+  editingId = null;
   sortState = { field: null, dir: "asc" };
   pendingLinks = [];
-  selectedRowIds.clear();
-  adminFilters = [];
-  nextAdminFilterId = 1;
+  if (entityChanged) {
+    selectedRowIds.clear();
+  }
   document.getElementById("current-entity-title").innerText =
     "Gestion - " + entity;
 
@@ -258,11 +548,14 @@ async function loadEntity(entity) {
   document.getElementById("admin-search-input").style.display = "inline-block";
   document.getElementById("btn-add-filter").style.display = "inline-block";
   document.getElementById("btn-clear-filters").style.display = "inline-block";
+  document.getElementById("btn-bulk-create").style.display = "inline-block";
   document.getElementById("admin-filters-panel").style.display = "block";
-  document.getElementById("admin-search-input").value = ""; // reset search
   document.getElementById("form-container").style.display = "none";
   document.getElementById("data-table-container").style.display = "block";
   document.getElementById("bulk-editor-container").style.display = "none";
+  document.getElementById("bulk-create-container").style.display = "none";
+
+  restoreAdminViewState(entity);
 
   const res = await fetch(`${API}/entities/${entity}`);
   currentRows = await res.json();
@@ -318,6 +611,8 @@ async function loadEntity(entity) {
   renderAdminFilters();
   applyAllAdminFilters();
   updateBulkButtonState();
+
+  persistAdminViewState();
 
   if (mobileEntityNavMedia.matches) {
     setMobileEntityNavOpen(false);
@@ -513,6 +808,7 @@ function applyAllAdminFilters() {
   renderAdminTable(filtered);
   renderAdminFilterSummary(filtered.length, currentRows.length);
   updateBulkButtonState();
+  persistAdminViewState();
 }
 
 async function readApiResponse(res) {
@@ -695,6 +991,8 @@ window.clearAdminFilters = clearAdminFilters;
 function showAddForm(rowData = null) {
   document.getElementById("data-table-container").style.display = "none";
   document.getElementById("form-container").style.display = "block";
+  const bulkCreateContainer = document.getElementById("bulk-create-container");
+  if (bulkCreateContainer) bulkCreateContainer.style.display = "none";
   editingId = rowData ? rowData.ID : null;
 
   const formFields = document.getElementById("form-fields");
@@ -746,6 +1044,8 @@ function showAddForm(rowData = null) {
   populateLinkTargetTypes();
   clearLinkTransientFields(true);
   if (rowData) loadExistingLinks();
+
+  bindLinkDateTouchTracking();
 
   initSelect2Admin();
 }
@@ -1012,11 +1312,13 @@ async function loadLinkTargets() {
   clearLinkTransientFields();
 
   const targetType = document.getElementById("link-target-type").value;
+  const modeSelect = document.getElementById("link-target-mode");
   const selectId = document.getElementById("link-target-id");
   const dateFields = document.getElementById("link-date-fields");
   selectId.innerHTML = '<option value="">Chargement...</option>';
 
   if (!targetType) {
+    if (modeSelect) modeSelect.style.display = "none";
     if (dateFields) dateFields.style.display = "none";
     return;
   }
@@ -1027,9 +1329,12 @@ async function loadLinkTargets() {
   );
 
   if (!rel) {
+    if (modeSelect) modeSelect.style.display = "none";
     if (dateFields) dateFields.style.display = "none";
     return;
   }
+
+  if (modeSelect) modeSelect.style.display = "inline-block";
 
   if (tablesWithDates.has(rel.table) && dateFields) {
     dateFields.style.display = "block";
@@ -1037,8 +1342,36 @@ async function loadLinkTargets() {
     dateFields.style.display = "none";
   }
 
+  const mode = modeSelect ? modeSelect.value : "existing";
+
+  if (mode === "draft") {
+    // Mode draft : chercher dans bulkCreateGroups
+    const drafts = [];
+    bulkCreateGroups.forEach(g => {
+      if (g.table === targetType) {
+        g.entities.forEach(e => {
+          drafts.push({ ref: e.ref, label: e.overrides?.titre || e.overrides?.Titre || e.ref });
+        });
+      }
+    });
+
+    selectId.innerHTML =
+      '<option value="">-- Sélectionnez un brouillon --</option>' +
+      drafts
+      .map(d => `<option value="${escapeHtml(d.ref)}">${escapeHtml(d.label)} (brouillon)</option>`)
+      .join("");
+      
+    if (selectId.value) {
+      refreshLinkDateSuggestion();
+    }
+    initSelect2Admin();
+    return;
+  }
+
+  // Mode existant
   const res = await fetch(`${API}/entities/${targetType}`);
   let data = await res.json();
+  linkTargetRowsCache[targetType] = Array.isArray(data) ? data : [];
 
   if (rel.table === "Lien_evenement_evenement" && editingId) {
     data = data.filter((d) => String(d.ID) !== String(editingId));
@@ -1058,11 +1391,22 @@ async function loadLinkTargets() {
     )
     .join("");
 
+  if (selectId.value) {
+    refreshLinkDateSuggestion();
+  }
+
   initSelect2Admin();
 }
 
 function handleLinkTargetSelectionChange() {
-  clearLinkTransientFields();
+  const targetId = document.getElementById("link-target-id")?.value;
+  if (!targetId) {
+    resetLinkDateFields();
+    return;
+  }
+
+  resetLinkDateFieldsTouched();
+  refreshLinkDateSuggestion();
 }
 
 window.handleLinkTargetSelectionChange = handleLinkTargetSelectionChange;
@@ -1079,6 +1423,9 @@ function toggleBulkEditor(show) {
     container.style.display = "none";
     return;
   }
+
+  const createContainer = document.getElementById("bulk-create-container");
+  if (createContainer) createContainer.style.display = "none";
 
   if (selectedRowIds.size === 0) {
     alert("Sélectionnez au moins une ligne dans le tableau.");
@@ -1334,10 +1681,1246 @@ async function submitBulkLinks() {
   }
 }
 
+const bulkCreateRequiredFields = {
+  Evenement: ["titre"],
+  Personnages: ["Nom"],
+  Lieu: ["titre"],
+  Entite_politique: ["titre"],
+  Fonctions: ["Titre"],
+  Tags: ["Titre"],
+  Source: ["Titre"],
+};
+
+const fkColumnToEntity = {
+  ID_image: "Image",
+  ID_evenement: "Evenement",
+  ID_evenement_A: "Evenement",
+  ID_evenement_B: "Evenement",
+  ID_personnage: "Personnages",
+  ID_personnage_A: "Personnages",
+  ID_personnage_B: "Personnages",
+  ID_fonctions: "Fonctions",
+  ID_tags: "Tags",
+  ID_lieu: "Lieu",
+  ID_lieux: "Lieu",
+  ID_entite_politique: "Entite_politique",
+  ID_entite_politique_A: "Entite_politique",
+  ID_entite_politique_B: "Entite_politique",
+  ID_source: "Source",
+  ID_sources: "Source",
+};
+
+function getBulkCreateEntityTables() {
+  return Object.keys(schemas).filter((table) => table !== "Image");
+}
+
+function getBulkCreateLinkTables() {
+  return Object.keys(bulkCreateLinkTableConfig);
+}
+
+function sanitizeDataPayload(payload) {
+  const out = {};
+  Object.entries(payload || {}).forEach(([key, value]) => {
+    if (value === null || value === undefined) return;
+    if (typeof value === "string" && value.trim() === "") return;
+    out[key] = value;
+  });
+  return out;
+}
+
+function createBlankDataForEntity(table) {
+  const fields = schemas[table] || [];
+  const data = {};
+  fields.forEach((field) => {
+    data[field.name] = "";
+  });
+  return data;
+}
+
+function createDefaultLinkFields() {
+  return {
+    description: "",
+    Date_Debut: "",
+    precision_Debut: "Jour",
+    Date_Fin: "",
+    precision_Fin: "Jour",
+  };
+}
+
+function getLinkFieldConfig(table) {
+  const fields = [
+    { name: "description", label: "Description", type: "text" },
+  ];
+
+  if (tablesWithDates.has(table)) {
+    fields.push(
+      { name: "Date_Debut", label: "Date début", type: "date" },
+      { name: "precision_Debut", label: "Précision début", type: "select", opts: ["Jour", "Mois", "Année"] },
+      { name: "Date_Fin", label: "Date fin", type: "date" },
+      { name: "precision_Fin", label: "Précision fin", type: "select", opts: ["Jour", "Mois", "Année"] },
+    );
+  }
+
+  return fields;
+}
+
+function getEntityFromFkColumn(column) {
+  return fkColumnToEntity[column] || null;
+}
+
+function getDraftReferenceOptions(entityName) {
+  const options = [];
+  bulkCreateGroups.forEach((group) => {
+    if (group.table !== entityName) return;
+    group.entities.forEach((entityRow) => {
+      const labelField = getDisplayField(group.table);
+      const merged = { ...group.commonData, ...entityRow.overrides };
+      const label = merged[labelField] || `Réf ${entityRow.ref}`;
+      options.push({ value: entityRow.ref, label: `${label} (${entityRow.ref})` });
+    });
+  });
+  return options;
+}
+
+function ensureBulkCreateEntityOptions(entityName) {
+  if (!entityName) return;
+  const cached = bulkCreateEntityOptionsCache[entityName];
+  if (cached?.rows || cached?.loading) return false;
+
+  bulkCreateEntityOptionsCache[entityName] = { loading: true, rows: [] };
+  fetch(`${API}/entities/${entityName}`)
+    .then((res) => res.json())
+    .then((rows) => {
+      bulkCreateEntityOptionsCache[entityName] = { loading: false, rows: Array.isArray(rows) ? rows : [] };
+      renderBulkCreateGroups();
+      renderBulkCreateStatus();
+    })
+    .catch(() => {
+      bulkCreateEntityOptionsCache[entityName] = { loading: false, rows: [] };
+      renderBulkCreateGroups();
+      renderBulkCreateStatus();
+    });
+
+  return true;
+}
+
+function getExistingReferenceOptions(entityName) {
+  const cached = bulkCreateEntityOptionsCache[entityName];
+  if (!cached || cached.loading) return [];
+  const rows = Array.isArray(cached.rows) ? cached.rows : [];
+  const displayField = getDisplayField(entityName);
+  return rows.map((row) => ({
+    value: String(Number(row.ID)),
+    label: `${row[displayField] || "Sans nom"} (ID ${Number(row.ID)})`,
+  }));
+}
+
+function normalizeBulkCreateLinkRefModes(link) {
+  const relationConfig = bulkCreateLinkTableConfig[link.table];
+  if (!relationConfig) return;
+
+  const sourceEntity = getEntityFromFkColumn(relationConfig.fkSrc);
+  const targetEntity = getEntityFromFkColumn(relationConfig.fkDest);
+
+  if (!sourceEntity || !targetEntity) return;
+
+  const sourceDrafts = getDraftReferenceOptions(sourceEntity);
+  const targetDrafts = getDraftReferenceOptions(targetEntity);
+
+  if (sourceEntity === "Image") {
+    link.sourceMode = "existing";
+  } else if (link.sourceMode !== "draft" && link.sourceMode !== "existing") {
+    link.sourceMode = sourceDrafts.length > 0 ? "draft" : "existing";
+  }
+
+  if (targetEntity === "Image") {
+    link.targetMode = "existing";
+  } else if (link.targetMode !== "draft" && link.targetMode !== "existing") {
+    link.targetMode = targetDrafts.length > 0 ? "draft" : "existing";
+  }
+
+  if (link.sourceMode === "draft" && !sourceDrafts.some((opt) => opt.value === link.sourceDraftRef)) {
+    link.sourceDraftRef = sourceDrafts[0]?.value || "";
+  }
+  if (link.targetMode === "draft" && !targetDrafts.some((opt) => opt.value === link.targetDraftRef)) {
+    link.targetDraftRef = targetDrafts[0]?.value || "";
+  }
+
+  const sourceExisting = getExistingReferenceOptions(sourceEntity);
+  const targetExisting = getExistingReferenceOptions(targetEntity);
+  if (link.sourceMode === "existing" && !sourceExisting.some((opt) => opt.value === link.sourceExistingId)) {
+    link.sourceExistingId = sourceExisting[0]?.value || "";
+  }
+  if (link.targetMode === "existing" && !targetExisting.some((opt) => opt.value === link.targetExistingId)) {
+    link.targetExistingId = targetExisting[0]?.value || "";
+  }
+}
+
+function resetBulkCreateState() {
+  bulkCreateGroups = [];
+  bulkCreateLinks = [];
+  bulkCreateEntityOptionsCache = {};
+  bulkCreateValidationErrors = [];
+  nextBulkCreateGroupId = 1;
+  nextBulkCreateEntityId = 1;
+  nextBulkCreateLinkId = 1;
+  nextBulkCreateGroupLinkId = 1;
+}
+
+function addBulkCreateGroup() {
+  const fallback = currentEntity && currentEntity !== "Image" && schemas[currentEntity]
+    ? currentEntity
+    : getBulkCreateEntityTables()[0];
+
+  const group = {
+    id: nextBulkCreateGroupId++,
+    table: fallback,
+    commonData: createBlankDataForEntity(fallback),
+    entities: [],
+    links: [],
+  };
+
+  bulkCreateGroups.push(group);
+  addBulkCreateEntityRow(group.id);
+  renderBulkCreate();
+}
+
+function removeBulkCreateGroup(groupId) {
+  bulkCreateGroups = bulkCreateGroups.filter((group) => group.id !== groupId);
+  renderBulkCreate();
+}
+
+function addBulkCreateEntityRow(groupId) {
+  const group = bulkCreateGroups.find((item) => item.id === groupId);
+  if (!group) return;
+
+  group.entities.push({
+    id: nextBulkCreateEntityId++,
+    ref: `draft_${group.id}_${group.entities.length + 1}`,
+    overrides: createBlankDataForEntity(group.table),
+    links: [],
+  });
+
+  renderBulkCreate();
+}
+
+function removeBulkCreateEntityRow(groupId, rowId) {
+  const group = bulkCreateGroups.find((item) => item.id === groupId);
+  if (!group) return;
+  group.entities = group.entities.filter((row) => row.id !== rowId);
+  renderBulkCreate();
+}
+
+function updateBulkCreateGroupTable(groupId, table) {
+  if (table === "Image") return;
+  const group = bulkCreateGroups.find((item) => item.id === groupId);
+  if (!group) return;
+  group.table = table;
+  group.links = []; // Clear links when group type changes
+  group.commonData = createBlankDataForEntity(table);
+  group.entities = group.entities.map((row, idx) => ({
+    ...row,
+    ref: `draft_${group.id}_${idx + 1}`,
+    overrides: createBlankDataForEntity(table),
+  }));
+  renderBulkCreate();
+}
+
+function updateBulkCreateGroupField(groupId, fieldName, value) {
+  const group = bulkCreateGroups.find((item) => item.id === groupId);
+  if (!group) return;
+  group.commonData[fieldName] = value;
+  renderBulkCreateStatus();
+}
+
+function updateBulkCreateEntityRef(groupId, rowId, value) {
+  const group = bulkCreateGroups.find((item) => item.id === groupId);
+  if (!group) return;
+  const row = group.entities.find((item) => item.id === rowId);
+  if (!row) return;
+  row.ref = value;
+  renderBulkCreateStatus();
+}
+
+function updateBulkCreateEntityField(groupId, rowId, fieldName, value) {
+  const group = bulkCreateGroups.find((item) => item.id === groupId);
+  if (!group) return;
+  const row = group.entities.find((item) => item.id === rowId);
+  if (!row) return;
+  row.overrides[fieldName] = value;
+  renderBulkCreateStatus();
+}
+
+function renderBulkFieldControl(field, value, onChangeExpr, prefixLabel = "", contextAttrs = "") {
+  const safeValue = value ?? "";
+  const label = `${prefixLabel}${field.label}`;
+
+  if (field.type === "textarea") {
+    return `<label>${escapeHtml(label)}</label><textarea ${contextAttrs} oninput="${onChangeExpr}">${escapeHtml(safeValue)}</textarea>`;
+  }
+
+  if (field.type === "select") {
+    const options = ['<option value="">--</option>']
+      .concat((field.opts || []).map((opt) => {
+        const selected = safeValue === opt ? "selected" : "";
+        return `<option value="${escapeHtml(opt)}" ${selected}>${escapeHtml(opt)}</option>`;
+      }))
+      .join("");
+    return `<label>${escapeHtml(label)}</label><select ${contextAttrs} oninput="${onChangeExpr}">${options}</select>`;
+  }
+
+  const type = field.name.includes("Date") ? "date" : "text";
+  return `<label>${escapeHtml(label)}</label><input type="${type}" ${contextAttrs} value="${escapeHtml(safeValue)}" oninput="${onChangeExpr}">`;
+}
+
+function getGroupLinkAllowedTables(groupTable) {
+  return Object.keys(bulkCreateLinkTableConfig).filter((table) => {
+    const config = bulkCreateLinkTableConfig[table];
+    return getEntityFromFkColumn(config.fkSrc) === groupTable || getEntityFromFkColumn(config.fkDest) === groupTable;
+  });
+}
+
+function getGroupLinkTargetEntity(table, groupTable) {
+  const config = bulkCreateLinkTableConfig[table];
+  const srcE = getEntityFromFkColumn(config.fkSrc);
+  const destE = getEntityFromFkColumn(config.fkDest);
+  if (srcE === groupTable && destE === groupTable) return groupTable;
+  if (srcE === groupTable) return destE;
+  return srcE;
+}
+
+function addBulkCreateGroupLink(groupId) {
+  const group = bulkCreateGroups.find((g) => g.id === groupId);
+  if (!group) return;
+
+  const allowedTables = getGroupLinkAllowedTables(group.table);
+  if (allowedTables.length === 0) {
+    alert("Aucun type de lien disponible pour " + group.table);
+    return;
+  }
+
+  const table = allowedTables[0];
+  const targetEntity = getGroupLinkTargetEntity(table, group.table);
+
+  if (!group.links) group.links = [];
+  group.links.push({
+    id: nextBulkCreateGroupLinkId++,
+    table: table,
+    targetMode: targetEntity === "Image" ? "existing" : "existing",
+    targetRef: "",
+    fields: createDefaultLinkFields()
+  });
+
+  renderBulkCreate();
+}
+
+function removeBulkCreateGroupLink(groupId, linkId) {
+  const group = bulkCreateGroups.find((g) => g.id === groupId);
+  if (!group) return;
+  group.links = group.links.filter((l) => l.id !== linkId);
+  renderBulkCreate();
+}
+
+function updateBulkCreateGroupLinkTable(groupId, linkId, table) {
+  const group = bulkCreateGroups.find((g) => g.id === groupId);
+  const link = group?.links?.find((l) => l.id === linkId);
+  if (!link) return;
+
+  link.table = table;
+  const targetEntity = getGroupLinkTargetEntity(table, group.table);
+  link.targetMode = targetEntity === "Image" ? "existing" : "existing";
+  link.targetRef = "";
+  link.fields = createDefaultLinkFields();
+
+  renderBulkCreate();
+}
+
+function updateBulkCreateGroupLinkMode(groupId, linkId, mode) {
+  const group = bulkCreateGroups.find((g) => g.id === groupId);
+  const link = group?.links?.find((l) => l.id === linkId);
+  if (!link) return;
+  link.targetMode = mode;
+  link.targetRef = "";
+  renderBulkCreate(); // re-render to update the select options
+}
+
+function updateBulkCreateGroupLinkRef(groupId, linkId, ref) {
+  const group = bulkCreateGroups.find((g) => g.id === groupId);
+  const link = group?.links?.find((l) => l.id === linkId);
+  if (!link) return;
+  link.targetRef = ref;
+  renderBulkCreateStatus();
+}
+
+function updateBulkCreateGroupLinkField(groupId, linkId, fieldName, value) {
+  const group = bulkCreateGroups.find((g) => g.id === groupId);
+  const link = group?.links?.find((l) => l.id === linkId);
+  if (!link) return;
+  link.fields[fieldName] = value;
+  renderBulkCreateStatus();
+}
+
+function addBulkCreateEntityLink(groupId, rowId) {
+  const group = bulkCreateGroups.find((g) => g.id === groupId);
+  if (!group) return;
+  const row = group.entities.find((r) => r.id === rowId);
+  if (!row) return;
+
+  const allowedTables = getGroupLinkAllowedTables(group.table);
+  if (allowedTables.length === 0) {
+    alert("Aucun type de lien disponible pour " + group.table);
+    return;
+  }
+
+  const table = allowedTables[0];
+  const targetEntity = getGroupLinkTargetEntity(table, group.table);
+
+  if (!row.links) row.links = [];
+  row.links.push({
+    id: nextBulkCreateGroupLinkId++,
+    table: table,
+    targetMode: targetEntity === "Image" ? "existing" : "existing",
+    targetRef: "",
+    fields: createDefaultLinkFields()
+  });
+
+  renderBulkCreate();
+}
+
+function removeBulkCreateEntityLink(groupId, rowId, linkId) {
+  const group = bulkCreateGroups.find((g) => g.id === groupId);
+  const row = group?.entities.find((r) => r.id === rowId);
+  if (!row) return;
+  row.links = row.links.filter((l) => l.id !== linkId);
+  renderBulkCreate();
+}
+
+function updateBulkCreateEntityLinkTable(groupId, rowId, linkId, table) {
+  const group = bulkCreateGroups.find((g) => g.id === groupId);
+  const row = group?.entities.find((r) => r.id === rowId);
+  const link = row?.links?.find((l) => l.id === linkId);
+  if (!link) return;
+
+  link.table = table;
+  const targetEntity = getGroupLinkTargetEntity(table, group.table);
+  link.targetMode = targetEntity === "Image" ? "existing" : "existing";
+  link.targetRef = "";
+  link.fields = createDefaultLinkFields();
+
+  renderBulkCreate();
+}
+
+function updateBulkCreateEntityLinkMode(groupId, rowId, linkId, mode) {
+  const group = bulkCreateGroups.find((g) => g.id === groupId);
+  const row = group?.entities.find((r) => r.id === rowId);
+  const link = row?.links?.find((l) => l.id === linkId);
+  if (!link) return;
+  link.targetMode = mode;
+  link.targetRef = "";
+  renderBulkCreate(); 
+}
+
+function updateBulkCreateEntityLinkRef(groupId, rowId, linkId, ref) {
+  const group = bulkCreateGroups.find((g) => g.id === groupId);
+  const row = group?.entities.find((r) => r.id === rowId);
+  const link = row?.links?.find((l) => l.id === linkId);
+  if (!link) return;
+  link.targetRef = ref;
+  renderBulkCreateStatus();
+}
+
+function updateBulkCreateEntityLinkField(groupId, rowId, linkId, fieldName, value) {
+  const group = bulkCreateGroups.find((g) => g.id === groupId);
+  const row = group?.entities.find((r) => r.id === rowId);
+  const link = row?.links?.find((l) => l.id === linkId);
+  if (!link) return;
+  link.fields[fieldName] = value;
+  renderBulkCreateStatus();
+}
+
+function renderBulkCreateGroups() {
+  const container = document.getElementById("bulk-create-groups");
+  if (!container) return;
+
+  if (bulkCreateGroups.length === 0) {
+    container.innerHTML = "<p>Aucun groupe d'entités. Ajoutez un groupe pour commencer.</p>";
+    return;
+  }
+
+  const tableOptions = getBulkCreateEntityTables()
+    .map((table) => `<option value="${escapeHtml(table)}">${escapeHtml(table)}</option>`)
+    .join("");
+
+  container.innerHTML = bulkCreateGroups.map((group) => {
+    const schemaFields = schemas[group.table] || [];
+    const commonFieldsHtml = schemaFields
+      .filter((field) => {
+        const fname = field.name.toLowerCase();
+        return fname !== "titre" && fname !== "nom";
+      })
+      .map((field) => renderBulkFieldControl(
+        field,
+        group.commonData[field.name] || "",
+        `updateBulkCreateGroupField(${group.id}, '${field.name}', this.value)`,
+        "",
+        `data-group="${group.id}" data-field="${field.name}" data-is-common="true"`
+      ))
+      .join("");
+
+    const entityRowsHtml = group.entities.length === 0
+      ? "<p>Aucune entité dans ce groupe.</p>"
+      : group.entities.map((row) => {
+          const rowFieldsHtml = schemaFields
+            .map((field) => renderBulkFieldControl(
+              field,
+              row.overrides[field.name] || "",
+              `updateBulkCreateEntityField(${group.id}, ${row.id}, '${field.name}', this.value)`,
+              "Surcharge ",
+              `data-group="${group.id}" data-row="${row.id}" data-field="${field.name}"`
+            ))
+            .join("");
+
+          const rowLinksHtml = (!row.links || row.links.length === 0)
+            ? ""
+            : row.links.map((link) => {
+                const targetEntity = getGroupLinkTargetEntity(link.table, group.table);
+                const allowedTables = getGroupLinkAllowedTables(group.table);
+                
+                const rLinkTableOptions = allowedTables.map(t => 
+                  `<option value="${escapeHtml(t)}" ${t === link.table ? "selected" : ""}>${escapeHtml(LINK_TABLE_LABELS[t] || t)}</option>`
+                ).join("");
+                
+                const targetModeOptions = targetEntity === "Image"
+                  ? '<option value="existing" selected>Existant</option>'
+                  : `<option value="draft" ${link.targetMode === "draft" ? "selected" : ""}>Draft</option><option value="existing" ${link.targetMode === "existing" ? "selected" : ""}>Existant</option>`;
+
+                const targetOptions = link.targetMode === "draft"
+                  ? getDraftReferenceOptions(targetEntity)
+                  : getExistingReferenceOptions(targetEntity);
+                  
+                const linkFields = getLinkFieldConfig(link.table)
+                  .map((field) => renderBulkFieldControl(
+                    field,
+                    link.fields?.[field.name] || "",
+                    `updateBulkCreateEntityLinkField(${group.id}, ${row.id}, ${link.id}, '${field.name}', this.value)`,
+                    "",
+                    `data-group="${group.id}" data-row="${row.id}" data-rlink="${link.id}" data-field="${field.name}"`
+                  ))
+                  .join("");
+
+                return `<div class="bulk-create-link-row" data-rlink-id="${link.id}">
+                  <div class="bulk-create-link-head">
+                    <label>Lien individuel (Cible: ${escapeHtml(targetEntity)})</label>
+                    <select class="bulk-create-link-table" data-group="${group.id}" data-row="${row.id}" data-rlink="${link.id}" data-field="table" onchange="updateBulkCreateEntityLinkTable(${group.id}, ${row.id}, ${link.id}, this.value)">
+                      ${rLinkTableOptions}
+                    </select>
+                    <button type="button" onclick="removeBulkCreateEntityLink(${group.id}, ${row.id}, ${link.id})">Retirer</button>
+                  </div>
+                  <div class="bulk-create-link-ref-grid" style="grid-template-columns: 1fr;">
+                    <div>
+                      <label>Cible (${escapeHtml(targetEntity)})</label>
+                      <select class="bulk-create-ref-mode" data-group="${group.id}" data-row="${row.id}" data-rlink="${link.id}" data-field="targetMode" oninput="updateBulkCreateEntityLinkMode(${group.id}, ${row.id}, ${link.id}, this.value)">${targetModeOptions}</select>
+                      ${renderReferenceSelect(targetOptions, link.targetRef, `updateBulkCreateEntityLinkRef(${group.id}, ${row.id}, ${link.id}, this.value)`, `data-group="${group.id}" data-row="${row.id}" data-rlink="${link.id}" data-field="targetRef"`)}
+                    </div>
+                  </div>
+                  <div class="bulk-create-grid-fields">
+                    ${linkFields}
+                  </div>
+                </div>`;
+            }).join("");
+
+          return `<div class="bulk-create-entity-row" data-row-id="${row.id}">
+            <div class="bulk-create-row-head">
+              <label>Référence draft</label>
+              <input type="text" class="bulk-create-entity-ref" data-group="${group.id}" data-row="${row.id}" data-field="ref" value="${escapeHtml(row.ref)}" oninput="updateBulkCreateEntityRef(${group.id}, ${row.id}, this.value)">
+              <button type="button" onclick="removeBulkCreateEntityRow(${group.id}, ${row.id})">Retirer</button>
+            </div>
+            <div class="bulk-create-entity-fields">
+              ${rowFieldsHtml}
+            </div>
+            <div class="bulk-create-row-links">
+              ${rowLinksHtml}
+              <button type="button" onclick="addBulkCreateEntityLink(${group.id}, ${row.id})" style="margin-top:8px;">Ajouter un lien individuel</button>
+            </div>
+          </div>`;
+        }).join("");
+
+    const groupLinksHtml = (!group.links || group.links.length === 0)
+      ? "<p>Aucun lien commun à ce groupe.</p>"
+      : group.links.map((link) => {
+          const targetEntity = getGroupLinkTargetEntity(link.table, group.table);
+          const allowedTables = getGroupLinkAllowedTables(group.table);
+          
+          const gLinkTableOptions = allowedTables.map(t => 
+            `<option value="${escapeHtml(t)}" ${t === link.table ? "selected" : ""}>${escapeHtml(LINK_TABLE_LABELS[t] || t)}</option>`
+          ).join("");
+          
+          const targetModeOptions = targetEntity === "Image"
+            ? '<option value="existing" selected>Existant</option>'
+            : `<option value="draft" ${link.targetMode === "draft" ? "selected" : ""}>Draft</option><option value="existing" ${link.targetMode === "existing" ? "selected" : ""}>Existant</option>`;
+
+          const targetOptions = link.targetMode === "draft"
+            ? getDraftReferenceOptions(targetEntity)
+            : getExistingReferenceOptions(targetEntity);
+            
+          const linkFields = getLinkFieldConfig(link.table)
+            .map((field) => renderBulkFieldControl(
+              field,
+              link.fields?.[field.name] || "",
+              `updateBulkCreateGroupLinkField(${group.id}, ${link.id}, '${field.name}', this.value)`,
+              "",
+              `data-group="${group.id}" data-glink="${link.id}" data-field="${field.name}"`
+            ))
+            .join("");
+
+          return `<div class="bulk-create-link-row" data-glink-id="${link.id}">
+            <div class="bulk-create-link-head">
+              <label>Lien global (Cible: ${escapeHtml(targetEntity)})</label>
+              <select class="bulk-create-link-table" data-group="${group.id}" data-glink="${link.id}" data-field="table" onchange="updateBulkCreateGroupLinkTable(${group.id}, ${link.id}, this.value)">
+                ${gLinkTableOptions}
+              </select>
+              <button type="button" onclick="removeBulkCreateGroupLink(${group.id}, ${link.id})">Retirer</button>
+            </div>
+            <div class="bulk-create-link-ref-grid" style="grid-template-columns: 1fr;">
+              <div>
+                <label>Cible (${escapeHtml(targetEntity)})</label>
+                <select class="bulk-create-ref-mode" data-group="${group.id}" data-glink="${link.id}" data-field="targetMode" oninput="updateBulkCreateGroupLinkMode(${group.id}, ${link.id}, this.value)">${targetModeOptions}</select>
+                ${renderReferenceSelect(targetOptions, link.targetRef, `updateBulkCreateGroupLinkRef(${group.id}, ${link.id}, this.value)`, `data-group="${group.id}" data-glink="${link.id}" data-field="targetRef"`)}
+              </div>
+            </div>
+            <div class="bulk-create-grid-fields">
+              ${linkFields}
+            </div>
+          </div>`;
+      }).join("");
+
+    return `<div class="bulk-create-group" data-group-id="${group.id}">
+      <div class="bulk-create-group-head">
+        <label>Type</label>
+        <select class="bulk-create-entity-table" onchange="updateBulkCreateGroupTable(${group.id}, this.value)">
+          ${tableOptions.replace(`value="${escapeHtml(group.table)}"`, `value="${escapeHtml(group.table)}" selected`)}
+        </select>
+        <button type="button" onclick="removeBulkCreateGroup(${group.id})">Supprimer le groupe</button>
+      </div>
+      
+      <div class="bulk-create-group-fields">
+        <h5>Liens communs à ce groupe</h5>
+        ${groupLinksHtml}
+        <button type="button" onclick="addBulkCreateGroupLink(${group.id})" style="margin-top:8px;">Ajouter un lien de groupe</button>
+      </div>
+
+      <div class="bulk-create-group-fields">
+        <h5>Champs communs</h5>
+        <div class="bulk-create-grid-fields">
+          ${commonFieldsHtml}
+        </div>
+      </div>
+      <div class="bulk-create-entity-list">${entityRowsHtml}</div>
+      <button type="button" onclick="addBulkCreateEntityRow(${group.id})">Ajouter une entité à ce groupe</button>
+    </div>`;
+  }).join("");
+
+  ensureBulkCreateOptionLoadsForGroupLinks();
+}
+
+function addBulkCreateLinkDraft() {
+  const firstTable = getBulkCreateLinkTables()[0];
+  bulkCreateLinks.push({
+    id: nextBulkCreateLinkId++,
+    table: firstTable,
+    sourceMode: "draft",
+    sourceDraftRef: "",
+    sourceExistingId: "",
+    targetMode: "draft",
+    targetDraftRef: "",
+    targetExistingId: "",
+    fields: createDefaultLinkFields(),
+  });
+
+  renderBulkCreate();
+}
+
+function removeBulkCreateLinkDraft(linkId) {
+  bulkCreateLinks = bulkCreateLinks.filter((link) => link.id !== linkId);
+  renderBulkCreate();
+}
+
+function updateBulkCreateLinkTable(linkId, table) {
+  const link = bulkCreateLinks.find((item) => item.id === linkId);
+  if (!link) return;
+  link.table = table;
+  link.fields = createDefaultLinkFields();
+  normalizeBulkCreateLinkRefModes(link);
+  renderBulkCreate();
+}
+
+function updateBulkCreateLinkMode(linkId, side, mode) {
+  const link = bulkCreateLinks.find((item) => item.id === linkId);
+  if (!link) return;
+  if (side === "source") link.sourceMode = mode;
+  if (side === "target") link.targetMode = mode;
+  normalizeBulkCreateLinkRefModes(link);
+  renderBulkCreate();
+}
+
+function autofillBulkCreateLinkDates(link) {
+  if (!tablesWithDates.has(link.table)) return;
+  const config = bulkCreateLinkTableConfig[link.table];
+  if (!config) return;
+
+  if (link.fields.Date_Debut || link.fields.Date_Fin) return;
+
+  let sourceStartDate, sourceEndDate, sourceStartPrec, sourceEndPrec;
+  if (link.sourceMode === "draft" && link.sourceDraftRef) {
+    bulkCreateGroups.forEach((g) => {
+      const row = g.entities.find((e) => e.ref === link.sourceDraftRef);
+      if (row) {
+        const merged = { ...g.commonData, ...row.overrides };
+        sourceStartDate = merged.Date_Debut || merged.Date_Naissance;
+        sourceEndDate = merged.Date_Fin || merged.Date_Mort;
+        sourceStartPrec = merged.precision_Debut || merged.precision_Naissance;
+        sourceEndPrec = merged.precision_Fin || merged.precision_Mort;
+      }
+    });
+  }
+
+  if (sourceStartDate) {
+    link.fields.Date_Debut = sourceStartDate;
+    if (sourceStartPrec) link.fields.precision_Debut = sourceStartPrec;
+  }
+  if (sourceEndDate) {
+    link.fields.Date_Fin = sourceEndDate;
+    if (sourceEndPrec) link.fields.precision_Fin = sourceEndPrec;
+  }
+}
+
+function updateBulkCreateLinkRef(linkId, side, value) {
+  const link = bulkCreateLinks.find((item) => item.id === linkId);
+  if (!link) return;
+
+  if (side === "source") {
+    if (link.sourceMode === "draft") link.sourceDraftRef = value;
+    else link.sourceExistingId = value;
+  }
+  if (side === "target") {
+    if (link.targetMode === "draft") link.targetDraftRef = value;
+    else link.targetExistingId = value;
+  }
+  
+  autofillBulkCreateLinkDates(link);
+  renderBulkCreate();
+}
+
+function updateBulkCreateLinkField(linkId, fieldName, value) {
+  const link = bulkCreateLinks.find((item) => item.id === linkId);
+  if (!link) return;
+  link.fields[fieldName] = value;
+  renderBulkCreateStatus();
+}
+
+function updateBulkCreateLinkCommonField(fieldName, value) {
+  bulkCreateLinkCommonFields[fieldName] = value;
+  renderBulkCreateStatus();
+}
+
+function renderReferenceSelect(options, selectedValue, onChangeExpr, contextAttrs = "") {
+  const opts = ['<option value="">-- Sélectionner --</option>']
+    .concat(options.map((opt) => `<option value="${escapeHtml(opt.value)}" ${String(selectedValue) === String(opt.value) ? "selected" : ""}>${escapeHtml(opt.label)}</option>`))
+    .join("");
+  return `<select class="bulk-create-ref-select" ${contextAttrs} oninput="${onChangeExpr}">${opts}</select>`;
+}
+
+function ensureBulkCreateOptionLoadsForGroupLinks() {
+  bulkCreateGroups.forEach((group) => {
+    if (group.links) {
+      group.links.forEach((gLink) => {
+        const targetEntity = getGroupLinkTargetEntity(gLink.table, group.table);
+        if (gLink.targetMode === "existing" && targetEntity) {
+          ensureBulkCreateEntityOptions(targetEntity);
+        }
+      });
+    }
+    if (group.entities) {
+      group.entities.forEach((row) => {
+        if (!row.links) return;
+        row.links.forEach((rLink) => {
+          const targetEntity = getGroupLinkTargetEntity(rLink.table, group.table);
+          if (rLink.targetMode === "existing" && targetEntity) {
+            ensureBulkCreateEntityOptions(targetEntity);
+          }
+        });
+      });
+    }
+  });
+}
+
+function renderBulkCreateLinks() {
+  const container = document.getElementById("bulk-create-links");
+  if (!container) return;
+
+  if (bulkCreateLinks.length === 0) {
+    container.innerHTML = "<p>Aucun lien préparé. Ajoutez un lien si besoin.</p>";
+    return;
+  }
+
+  const tableOptions = getBulkCreateLinkTables()
+    .map((table) => `<option value="${escapeHtml(table)}">${escapeHtml(LINK_TABLE_LABELS[table] || table)}</option>`)
+    .join("");
+
+  container.innerHTML = bulkCreateLinks.map((link) => {
+    const config = bulkCreateLinkTableConfig[link.table];
+    const sourceEntity = config ? getEntityFromFkColumn(config.fkSrc) : null;
+    const targetEntity = config ? getEntityFromFkColumn(config.fkDest) : null;
+    normalizeBulkCreateLinkRefModes(link);
+
+    const sourceModeOptions = sourceEntity === "Image"
+      ? '<option value="existing" selected>Existant</option>'
+      : `<option value="draft" ${link.sourceMode === "draft" ? "selected" : ""}>Draft</option><option value="existing" ${link.sourceMode === "existing" ? "selected" : ""}>Existant</option>`;
+
+    const targetModeOptions = targetEntity === "Image"
+      ? '<option value="existing" selected>Existant</option>'
+      : `<option value="draft" ${link.targetMode === "draft" ? "selected" : ""}>Draft</option><option value="existing" ${link.targetMode === "existing" ? "selected" : ""}>Existant</option>`;
+
+    const sourceOptions = link.sourceMode === "draft"
+      ? getDraftReferenceOptions(sourceEntity)
+      : getExistingReferenceOptions(sourceEntity);
+    const targetOptions = link.targetMode === "draft"
+      ? getDraftReferenceOptions(targetEntity)
+      : getExistingReferenceOptions(targetEntity);
+
+    const sourceValue = link.sourceMode === "draft" ? link.sourceDraftRef : link.sourceExistingId;
+    const targetValue = link.targetMode === "draft" ? link.targetDraftRef : link.targetExistingId;
+    const linkFields = getLinkFieldConfig(link.table)
+      .map((field) => renderBulkFieldControl(
+        field,
+        link.fields?.[field.name] || "",
+        `updateBulkCreateLinkField(${link.id}, '${field.name}', this.value)`,
+        "",
+        `data-link="${link.id}" data-field="${field.name}"`
+      ))
+      .join("");
+
+    return `<div class="bulk-create-link-row" data-link-id="${link.id}">
+      <div class="bulk-create-link-head">
+        <label>Table de lien</label>
+        <select class="bulk-create-link-table" data-link="${link.id}" data-field="table" onchange="updateBulkCreateLinkTable(${link.id}, this.value)">
+          ${tableOptions.replace(`value="${escapeHtml(link.table)}"`, `value="${escapeHtml(link.table)}" selected`)}
+        </select>
+        <button type="button" onclick="removeBulkCreateLinkDraft(${link.id})">Retirer</button>
+      </div>
+      <div class="bulk-create-link-ref-grid">
+        <div>
+          <label>Source (${escapeHtml(sourceEntity || "?")})</label>
+          <select class="bulk-create-ref-mode" data-link="${link.id}" data-field="sourceMode" oninput="updateBulkCreateLinkMode(${link.id}, 'source', this.value)">${sourceModeOptions}</select>
+          ${renderReferenceSelect(sourceOptions, sourceValue, `updateBulkCreateLinkRef(${link.id}, 'source', this.value)`, `data-link="${link.id}" data-field="sourceRef"`)}
+        </div>
+        <div>
+          <label>Cible (${escapeHtml(targetEntity || "?")})</label>
+          <select class="bulk-create-ref-mode" data-link="${link.id}" data-field="targetMode" oninput="updateBulkCreateLinkMode(${link.id}, 'target', this.value)">${targetModeOptions}</select>
+          ${renderReferenceSelect(targetOptions, targetValue, `updateBulkCreateLinkRef(${link.id}, 'target', this.value)`, `data-link="${link.id}" data-field="targetRef"`)}
+        </div>
+      </div>
+      <div class="bulk-create-grid-fields">
+        ${linkFields}
+      </div>
+    </div>`;
+  }).join("");
+
+  ensureBulkCreateOptionLoadsForLinks();
+}
+
+function validateDatePrecisionPair(data, dateField, precisionField, contextLabel, targetSelector = "") {
+  const errors = [];
+  const dateValue = String(data?.[dateField] || "").trim();
+  const precisionValue = String(data?.[precisionField] || "").trim();
+  if (!dateValue && precisionValue) {
+    errors.push({ msg: `${contextLabel}: ${precisionField} sans ${dateField}.`, selector: targetSelector });
+  }
+  return errors;
+}
+
+function validateDateOrder(data, startField, endField, contextLabel, targetSelector = "") {
+  const startValue = String(data?.[startField] || "").trim();
+  const endValue = String(data?.[endField] || "").trim();
+  if (!startValue || !endValue) return [];
+  const start = parseDateOrNull(startValue);
+  const end = parseDateOrNull(endValue);
+  if (!start || !end) return [];
+  if (start > end) {
+    return [{ msg: `${contextLabel}: ${startField} doit être antérieure à ${endField}.`, selector: targetSelector }];
+  }
+  return [];
+}
+
+function validateBulkCreateState() {
+  const errors = [];
+  const refSeen = new Set();
+  const allRefs = new Set();
+
+  if (bulkCreateGroups.length === 0) {
+    errors.push({ msg: "Ajoute au moins un groupe d'entités.", selector: "" });
+  }
+
+  // Pre-collect all refs
+  bulkCreateGroups.forEach((group) => {
+    group.entities.forEach((row) => {
+      const ref = String(row.ref || "").trim();
+      if (ref && !refSeen.has(ref)) {
+        refSeen.add(ref);
+        allRefs.add(ref);
+      }
+    });
+  });
+
+  const refSeenCheck = new Set();
+
+  bulkCreateGroups.forEach((group) => {
+    if (group.links) {
+      group.links.forEach((gLink) => {
+        const targetRef = String(gLink.targetRef || "").trim();
+        const targetSel = `[data-group="${group.id}"][data-glink="${gLink.id}"][data-field="targetRef"]`;
+
+        if (!targetRef) {
+          errors.push({ msg: `Lien de groupe ${group.id}: cible manquante.`, selector: targetSel });
+        } else if (gLink.targetMode === "draft" && !allRefs.has(targetRef)) {
+          errors.push({ msg: `Lien de groupe ${group.id}: référence cible inconnue (${targetRef}).`, selector: targetSel });
+        }
+
+        if (tablesWithDates.has(gLink.table)) {
+          const fields = { ...(gLink.fields || {}) };
+          const dDebutSel = `[data-group="${group.id}"][data-glink="${gLink.id}"][data-field="Date_Debut"]`;
+          const dFinSel = `[data-group="${group.id}"][data-glink="${gLink.id}"][data-field="Date_Fin"]`;
+
+          errors.push(...validateDatePrecisionPair(fields, "Date_Debut", "precision_Debut", `Lien de groupe ${group.id}`, dDebutSel));
+          errors.push(...validateDatePrecisionPair(fields, "Date_Fin", "precision_Fin", `Lien de groupe ${group.id}`, dFinSel));
+          errors.push(...validateDateOrder(fields, "Date_Debut", "Date_Fin", `Lien de groupe ${group.id}`, dDebutSel));
+        }
+      });
+    }
+
+    if (group.table === "Image") {
+      errors.push({ msg: `Groupe ${group.id}: la création d'images en masse n'est pas supportée.`, selector: `[data-group="${group.id}"]` });
+    }
+
+    if (group.entities.length === 0) {
+      errors.push({ msg: `Groupe ${group.id}: aucune entité à créer.`, selector: `[data-group="${group.id}"]` });
+    }
+
+    group.entities.forEach((row) => {
+      const context = `Entité ${row.ref || `g${group.id}-r${row.id}`}`;
+      const ref = String(row.ref || "").trim();
+      const refSelector = `[data-group="${group.id}"][data-row="${row.id}"][data-field="ref"]`;
+      if (!ref) {
+        errors.push({ msg: `Groupe ${group.id}: référence draft manquante.`, selector: refSelector });
+      } else if (refSeenCheck.has(ref)) {
+        errors.push({ msg: `Référence draft dupliquée: ${ref}.`, selector: refSelector });
+      } else {
+        refSeenCheck.add(ref);
+      }
+
+      const merged = { ...group.commonData, ...row.overrides };
+      const required = bulkCreateRequiredFields[group.table] || [];
+      required.forEach((fieldName) => {
+        const value = String(merged[fieldName] || "").trim();
+        if (!value) {
+          // Try to highlight either the override or the common field
+          const fieldSel = row.overrides[fieldName] === undefined && group.commonData[fieldName] === undefined 
+            ? `[data-group="${group.id}"][data-field="${fieldName}"]` 
+            : (row.overrides[fieldName] ? `[data-group="${group.id}"][data-row="${row.id}"][data-field="${fieldName}"]` : `[data-group="${group.id}"][data-field="${fieldName}"]`);
+          
+          errors.push({ msg: `${context}: champ requis ${fieldName} manquant.`, selector: fieldSel });
+        }
+      });
+
+      const dateDebutSel = `[data-group="${group.id}"][data-row="${row.id}"][data-field="Date_Debut"], [data-group="${group.id}"][data-field="Date_Debut"]`;
+      const dateFinSel = `[data-group="${group.id}"][data-row="${row.id}"][data-field="Date_Fin"], [data-group="${group.id}"][data-field="Date_Fin"]`;
+      const dateNaissSel = `[data-group="${group.id}"][data-row="${row.id}"][data-field="Date_Naissance"], [data-group="${group.id}"][data-field="Date_Naissance"]`;
+      const dateMortSel = `[data-group="${group.id}"][data-row="${row.id}"][data-field="Date_Mort"], [data-group="${group.id}"][data-field="Date_Mort"]`;
+
+      errors.push(...validateDatePrecisionPair(merged, "Date_Debut", "precision_Debut", context, dateDebutSel));
+      errors.push(...validateDatePrecisionPair(merged, "Date_Fin", "precision_Fin", context, dateFinSel));
+      errors.push(...validateDatePrecisionPair(merged, "Date_Naissance", "precision_Naissance", context, dateNaissSel));
+      errors.push(...validateDatePrecisionPair(merged, "Date_Mort", "precision_Mort", context, dateMortSel));
+      errors.push(...validateDateOrder(merged, "Date_Debut", "Date_Fin", context, dateDebutSel));
+      errors.push(...validateDateOrder(merged, "Date_Naissance", "Date_Mort", context, dateNaissSel));
+
+      if (row.links) {
+        row.links.forEach((rLink) => {
+          const targetRef = String(rLink.targetRef || "").trim();
+          const targetSel = `[data-group="${group.id}"][data-row="${row.id}"][data-rlink="${rLink.id}"][data-field="targetRef"]`;
+
+          if (!targetRef) {
+            errors.push({ msg: `Lien individuel (Entité ${ref}): cible manquante.`, selector: targetSel });
+          } else if (rLink.targetMode === "draft" && !allRefs.has(targetRef)) {
+            errors.push({ msg: `Lien individuel (Entité ${ref}): référence cible inconnue (${targetRef}).`, selector: targetSel });
+          }
+
+          if (tablesWithDates.has(rLink.table)) {
+            const fields = { ...(rLink.fields || {}) };
+            const rDebutSel = `[data-group="${group.id}"][data-row="${row.id}"][data-rlink="${rLink.id}"][data-field="Date_Debut"]`;
+            const rFinSel = `[data-group="${group.id}"][data-row="${row.id}"][data-rlink="${rLink.id}"][data-field="Date_Fin"]`;
+
+            errors.push(...validateDatePrecisionPair(fields, "Date_Debut", "precision_Debut", `Lien individuel (Entité ${ref})`, rDebutSel));
+            errors.push(...validateDatePrecisionPair(fields, "Date_Fin", "precision_Fin", `Lien individuel (Entité ${ref})`, rFinSel));
+            errors.push(...validateDateOrder(fields, "Date_Debut", "Date_Fin", `Lien individuel (Entité ${ref})`, rDebutSel));
+          }
+        });
+      }
+    });
+  });
+
+  return errors;
+}
+
+function renderBulkCreateStatus() {
+  bulkCreateValidationErrors = validateBulkCreateState();
+
+  const summary = document.getElementById("bulk-create-summary");
+  const errorsContainer = document.getElementById("bulk-create-errors");
+  const submitBtn = document.getElementById("bulk-create-submit");
+
+  // Remove existing hit-error markers
+  document.querySelectorAll(".hit-error").forEach((el) => el.classList.remove("hit-error"));
+
+  // Apply hit-error to targeted elements
+  bulkCreateValidationErrors.forEach((err) => {
+    if (!err.selector) return;
+    try {
+      const els = document.querySelectorAll(err.selector);
+      els.forEach((el) => {
+        el.classList.add("hit-error");
+        // For match groups, apply to the parent select2 if present
+        if (el.classList.contains("select2-hidden-accessible")) {
+          const s2Container = el.nextElementSibling;
+          if (s2Container && s2Container.classList.contains("select2-container")) {
+            s2Container.querySelector('.select2-selection').classList.add("hit-error");
+          }
+        }
+      });
+    } catch(e) {}
+  });
+
+  const entityCount = bulkCreateGroups.reduce((sum, g) => sum + g.entities.length, 0);
+  const linkCount = bulkCreateGroups.reduce((acc, g) => acc + (g.links?.length || 0) * (g.entities?.length || 0) + g.entities.reduce((sum, r) => sum + (r.links?.length || 0), 0), 0);
+  if (summary) {
+    summary.textContent = `${entityCount} entité(s) préparée(s), ${linkCount} lien(s) généré(s).`;
+  }
+
+  if (errorsContainer) {
+    if (bulkCreateValidationErrors.length === 0) {
+      errorsContainer.innerHTML = '<p class="bulk-create-ok">Validation OK.</p>';
+    } else {
+      errorsContainer.innerHTML = `<ul>${bulkCreateValidationErrors.map((err) => `<li>${escapeHtml(err.msg)}</li>`).join("")}</ul>`;
+    }
+  }
+
+  if (submitBtn) submitBtn.disabled = bulkCreateValidationErrors.length > 0;
+}
+
+function renderBulkCreate() {
+  renderBulkCreateGroups();
+  renderBulkCreateStatus();
+  initSelect2Admin(document.getElementById("bulk-create-container"));
+}
+
+function closeBulkPanels() {
+  const createContainer = document.getElementById("bulk-create-container");
+  const editorContainer = document.getElementById("bulk-editor-container");
+  if (createContainer) createContainer.style.display = "none";
+  if (editorContainer) editorContainer.style.display = "none";
+}
+
+function toggleBulkCreate(show) {
+  const container = document.getElementById("bulk-create-container");
+  if (!container) return;
+
+  if (!show) {
+    container.style.display = "none";
+    if (currentEntity) {
+      document.getElementById("data-table-container").style.display = "block";
+    }
+    return;
+  }
+
+  closeBulkPanels();
+  document.getElementById("form-container").style.display = "none";
+  if (currentEntity) {
+    document.getElementById("data-table-container").style.display = "block";
+  }
+
+  if (bulkCreateGroups.length === 0) {
+    resetBulkCreateState();
+    addBulkCreateGroup();
+  }
+
+  container.style.display = "block";
+  renderBulkCreate();
+}
+
+function collectBulkCreatePayload() {
+  const createEntities = [];
+  const createLinks = [];
+
+  bulkCreateGroups.forEach((group) => {
+    if (!group.table) {
+      throw new Error(`Le groupe ${group.id} n'a pas de type.`);
+    }
+
+    const commonData = sanitizeDataPayload(group.commonData);
+    if (group.entities.length === 0) {
+      throw new Error(`Le groupe ${group.id} ne contient aucune entité.`);
+    }
+
+    group.entities.forEach((row) => {
+      const ref = String(row.ref || "").trim();
+      if (!ref) {
+        throw new Error(`Une entité du groupe ${group.id} n'a pas de référence.`);
+      }
+
+      const overrides = sanitizeDataPayload(row.overrides);
+      createEntities.push({
+        table: group.table,
+        ref,
+        data: sanitizeDataPayload({ ...commonData, ...overrides }),
+      });
+
+      if (group.links) {
+        group.links.forEach((gLink) => {
+          const config = bulkCreateLinkTableConfig[gLink.table];
+          if (!config) return;
+
+          const srcE = getEntityFromFkColumn(config.fkSrc);
+          const destE = getEntityFromFkColumn(config.fkDest);
+          
+          let fkGroup, fkTarget;
+          if (srcE === group.table && destE === group.table) {
+              fkGroup = config.fkSrc;
+              fkTarget = config.fkDest;
+          } else if (srcE === group.table) {
+              fkGroup = config.fkSrc;
+              fkTarget = config.fkDest;
+          } else {
+              fkGroup = config.fkDest;
+              fkTarget = config.fkSrc;
+          }
+
+          const targetVal = gLink.targetMode === "draft"
+            ? String(gLink.targetRef || "").trim()
+            : Number(gLink.targetRef || 0);
+
+          createLinks.push({
+            table: gLink.table,
+            payload: sanitizeDataPayload({
+              [fkGroup]: ref,
+              [fkTarget]: targetVal,
+              ...gLink.fields,
+            }),
+          });
+        });
+      }
+
+      if (row.links) {
+        row.links.forEach((rLink) => {
+          const config = bulkCreateLinkTableConfig[rLink.table];
+          if (!config) return;
+
+          const srcE = getEntityFromFkColumn(config.fkSrc);
+          const destE = getEntityFromFkColumn(config.fkDest);
+          
+          let fkGroup, fkTarget;
+          if (srcE === group.table && destE === group.table) {
+              fkGroup = config.fkSrc;
+              fkTarget = config.fkDest;
+          } else if (srcE === group.table) {
+              fkGroup = config.fkSrc;
+              fkTarget = config.fkDest;
+          } else {
+              fkGroup = config.fkDest;
+              fkTarget = config.fkSrc;
+          }
+
+          const targetVal = rLink.targetMode === "draft"
+            ? String(rLink.targetRef || "").trim()
+            : Number(rLink.targetRef || 0);
+
+          createLinks.push({
+            table: rLink.table,
+            payload: sanitizeDataPayload({
+              [fkGroup]: ref,
+              [fkTarget]: targetVal,
+              ...rLink.fields,
+            }),
+          });
+        });
+      }
+    });
+  });
+
+  return { createEntities, createLinks };
+}
+
+async function submitBulkCreate() {
+  try {
+    renderBulkCreateStatus();
+    if (bulkCreateValidationErrors.length > 0) {
+      throw new Error("Le formulaire contient des erreurs. Corrige les champs en rouge avant d'envoyer.");
+    }
+
+    const payload = collectBulkCreatePayload();
+    if (payload.createEntities.length === 0) {
+      alert("Ajoutez au moins une entité à créer.");
+      return;
+    }
+
+    const res = await fetch(`${API}/bulk-transaction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ atomic: true, ...payload }),
+    });
+    const responsePayload = await readApiResponse(res);
+    if (!res.ok) {
+      throw new Error(responsePayload.error || "Ajout de masse impossible");
+    }
+
+    alert(`Ajout de masse terminé: ${responsePayload.successCount || 0} opération(s) réalisée(s).`);
+    toggleBulkCreate(false);
+    resetBulkCreateState();
+    if (currentEntity) {
+      await loadEntity(currentEntity);
+    }
+  } catch (err) {
+    alert(`Erreur ajout de masse: ${err.message}`);
+  }
+}
+
 window.toggleBulkEditor = toggleBulkEditor;
 window.onBulkActionChanged = onBulkActionChanged;
 window.loadBulkTargetOptions = loadBulkTargetOptions;
 window.submitBulkLinks = submitBulkLinks;
+window.toggleBulkCreate = toggleBulkCreate;
+window.addBulkCreateGroup = addBulkCreateGroup;
+window.addBulkCreateEntityRow = addBulkCreateEntityRow;
+window.removeBulkCreateGroup = removeBulkCreateGroup;
+window.removeBulkCreateEntityRow = removeBulkCreateEntityRow;
+window.updateBulkCreateGroupTable = updateBulkCreateGroupTable;
+window.updateBulkCreateGroupField = updateBulkCreateGroupField;
+window.updateBulkCreateEntityRef = updateBulkCreateEntityRef;
+window.updateBulkCreateEntityField = updateBulkCreateEntityField;
+window.submitBulkCreate = submitBulkCreate;
+
+window.addBulkCreateGroupLink = addBulkCreateGroupLink;
+window.removeBulkCreateGroupLink = removeBulkCreateGroupLink;
+window.updateBulkCreateGroupLinkTable = updateBulkCreateGroupLinkTable;
+window.updateBulkCreateGroupLinkMode = updateBulkCreateGroupLinkMode;
+window.updateBulkCreateGroupLinkRef = updateBulkCreateGroupLinkRef;
+window.updateBulkCreateGroupLinkField = updateBulkCreateGroupLinkField;
+
+window.addBulkCreateEntityLink = addBulkCreateEntityLink;
+window.removeBulkCreateEntityLink = removeBulkCreateEntityLink;
+window.updateBulkCreateEntityLinkTable = updateBulkCreateEntityLinkTable;
+window.updateBulkCreateEntityLinkMode = updateBulkCreateEntityLinkMode;
+window.updateBulkCreateEntityLinkRef = updateBulkCreateEntityLinkRef;
+window.updateBulkCreateEntityLinkField = updateBulkCreateEntityLinkField;
 
 function setImportStatus(message, isError = false) {
   const statusEl = document.getElementById("import-backup-status");
@@ -1445,6 +3028,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (importForm) {
     importForm.addEventListener("submit", handleBackupImport);
   }
+
+  const storedState = readAdminViewState();
+  if (storedState.lastEntity && storedState.entities?.[storedState.lastEntity]) {
+    await loadEntity(storedState.lastEntity);
+  }
 });
 
 async function addLink() {
@@ -1471,6 +3059,7 @@ async function addLink() {
   if (desc) payload.description = desc;
 
   if (tablesWithDates.has(rel.table)) {
+    refreshLinkDateSuggestion();
     const dDebut = document.getElementById("link-date-debut")?.value;
     const pDebut = document.getElementById("link-precision-debut")?.value;
     const dFin = document.getElementById("link-date-fin")?.value;
@@ -1490,6 +3079,8 @@ async function addLink() {
       fkDest: rel.fkDest,
       targetType,
       targetLabel: targetText,
+      targetMode: document.getElementById("link-target-mode")?.value || "existing",
+      targetRef: targetId,
       payload,
     });
     renderPendingLinks();

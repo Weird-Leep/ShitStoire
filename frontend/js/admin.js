@@ -1732,7 +1732,11 @@ function createBlankDataForEntity(table) {
   const fields = schemas[table] || [];
   const data = {};
   fields.forEach((field) => {
-    data[field.name] = "";
+    if (field.name.toLowerCase().includes("precision")) {
+      data[field.name] = "Jour";
+    } else {
+      data[field.name] = "";
+    }
   });
   return data;
 }
@@ -1876,6 +1880,7 @@ function addBulkCreateGroup() {
     id: nextBulkCreateGroupId++,
     table: fallback,
     commonData: createBlankDataForEntity(fallback),
+    activeCommonFields: [],
     entities: [],
     links: [],
   };
@@ -1918,11 +1923,33 @@ function updateBulkCreateGroupTable(groupId, table) {
   group.table = table;
   group.links = []; // Clear links when group type changes
   group.commonData = createBlankDataForEntity(table);
+  group.activeCommonFields = [];
   group.entities = group.entities.map((row, idx) => ({
     ...row,
     ref: `draft_${group.id}_${idx + 1}`,
     overrides: createBlankDataForEntity(table),
   }));
+  renderBulkCreate();
+}
+
+function addBulkCreateGroupCommonField(groupId) {
+  const group = bulkCreateGroups.find((item) => item.id === groupId);
+  if (!group) return;
+  const select = document.getElementById(`bulk-create-common-field-select-${groupId}`);
+  if (!select || !select.value) return;
+  
+  if (!group.activeCommonFields.includes(select.value)) {
+    group.activeCommonFields.push(select.value);
+    renderBulkCreate();
+  }
+}
+
+function removeBulkCreateGroupCommonField(groupId, fieldName) {
+  const group = bulkCreateGroups.find((item) => item.id === groupId);
+  if (!group) return;
+  
+  group.activeCommonFields = group.activeCommonFields.filter(f => f !== fieldName);
+  group.commonData[fieldName] = createBlankDataForEntity(group.table)[fieldName];
   renderBulkCreate();
 }
 
@@ -2153,19 +2180,42 @@ function renderBulkCreateGroups() {
 
   container.innerHTML = bulkCreateGroups.map((group) => {
     const schemaFields = schemas[group.table] || [];
-    const commonFieldsHtml = schemaFields
-      .filter((field) => {
-        const fname = field.name.toLowerCase();
-        return fname !== "titre" && fname !== "nom";
-      })
-      .map((field) => renderBulkFieldControl(
-        field,
-        group.commonData[field.name] || "",
-        `updateBulkCreateGroupField(${group.id}, '${field.name}', this.value)`,
-        "",
-        `data-group="${group.id}" data-field="${field.name}" data-is-common="true"`
-      ))
-      .join("");
+    
+    // Process active common fields
+    if (!group.activeCommonFields) group.activeCommonFields = [];
+    const availableFieldsForCommon = schemaFields.filter(f => {
+      const fname = f.name.toLowerCase();
+      return fname !== "titre" && fname !== "nom" && !group.activeCommonFields.includes(f.name);
+    });
+    
+    const commonFieldsHtml = group.activeCommonFields.length > 0 
+      ? group.activeCommonFields.map(fieldName => {
+          const field = schemaFields.find(f => f.name === fieldName);
+          if (!field) return "";
+          return `<div class="bulk-create-common-field-wrapper" style="display: flex; align-items: flex-end; gap: 8px; margin-bottom: 8px;">
+            <div style="flex: 1;">
+              ${renderBulkFieldControl(
+                field,
+                group.commonData[field.name] || "",
+                `updateBulkCreateGroupField(${group.id}, '${field.name}', this.value)`,
+                "",
+                `data-group="${group.id}" data-field="${field.name}" data-is-common="true"`
+              )}
+            </div>
+            <button type="button" onclick="removeBulkCreateGroupCommonField(${group.id}, '${field.name}')" title="Retirer" style="padding: 10px; cursor: pointer; background: #ffebee; border: none; border-radius: 6px; color: #b71c1c; font-weight: bold;">❌</button>
+          </div>`;
+        }).join("")
+      : "";
+
+    const addCommonFieldHtml = availableFieldsForCommon.length > 0 
+      ? `<div style="margin-top: 10px; display: flex; gap: 8px; align-items: center;">
+           <select id="bulk-create-common-field-select-${group.id}">
+             <option value="">-- Choisir un champ commun --</option>
+             ${availableFieldsForCommon.map(f => `<option value="${escapeHtml(f.name)}">${escapeHtml(f.label)}</option>`).join("")}
+           </select>
+           <button type="button" onclick="addBulkCreateGroupCommonField(${group.id})">Ajouter ce champ commun</button>
+         </div>`
+      : "";
 
     const entityRowsHtml = group.entities.length === 0
       ? "<p>Aucune entité dans ce groupe.</p>"
@@ -2186,45 +2236,51 @@ function renderBulkCreateGroups() {
                 const targetEntity = getGroupLinkTargetEntity(link.table, group.table);
                 const allowedTables = getGroupLinkAllowedTables(group.table);
                 
-                const rLinkTableOptions = allowedTables.map(t => 
-                  `<option value="${escapeHtml(t)}" ${t === link.table ? "selected" : ""}>${escapeHtml(LINK_TABLE_LABELS[t] || t)}</option>`
-                ).join("");
+                const rLinkTableOptions = allowedTables.map(t => {
+                  const targetEnt = getGroupLinkTargetEntity(t, group.table);
+                  return `<option value="${escapeHtml(t)}" ${t === link.table ? "selected" : ""}>${escapeHtml(targetEnt)}</option>`;
+                }).join("");
                 
                 const targetModeOptions = targetEntity === "Image"
                   ? '<option value="existing" selected>Existant</option>'
-                  : `<option value="draft" ${link.targetMode === "draft" ? "selected" : ""}>Draft</option><option value="existing" ${link.targetMode === "existing" ? "selected" : ""}>Existant</option>`;
+                  : `<option value="draft" ${link.targetMode === "draft" ? "selected" : ""}>Draft (en cours de création)</option><option value="existing" ${link.targetMode === "existing" ? "selected" : ""}>Existant</option>`;
 
                 const targetOptions = link.targetMode === "draft"
                   ? getDraftReferenceOptions(targetEntity)
                   : getExistingReferenceOptions(targetEntity);
                   
-                const linkFields = getLinkFieldConfig(link.table)
-                  .map((field) => renderBulkFieldControl(
-                    field,
-                    link.fields?.[field.name] || "",
-                    `updateBulkCreateEntityLinkField(${group.id}, ${row.id}, ${link.id}, '${field.name}', this.value)`,
-                    "",
-                    `data-group="${group.id}" data-row="${row.id}" data-rlink="${link.id}" data-field="${field.name}"`
-                  ))
-                  .join("");
+                const hasDates = tablesWithDates.has(link.table);
+                
+                const targetRefSelect = renderReferenceSelect(targetOptions, link.targetRef, `updateBulkCreateEntityLinkRef(${group.id}, ${row.id}, ${link.id}, this.value)`, `data-group="${group.id}" data-row="${row.id}" data-rlink="${link.id}" data-field="targetRef"`);
 
-                return `<div class="bulk-create-link-row" data-rlink-id="${link.id}">
-                  <div class="bulk-create-link-head">
-                    <label>Lien individuel (Cible: ${escapeHtml(targetEntity)})</label>
+                return `<div class="bulk-create-link-row link-form-row" data-rlink-id="${link.id}">
+                  <div>
                     <select class="bulk-create-link-table" data-group="${group.id}" data-row="${row.id}" data-rlink="${link.id}" data-field="table" onchange="updateBulkCreateEntityLinkTable(${group.id}, ${row.id}, ${link.id}, this.value)">
                       ${rLinkTableOptions}
                     </select>
-                    <button type="button" onclick="removeBulkCreateEntityLink(${group.id}, ${row.id}, ${link.id})">Retirer</button>
-                  </div>
-                  <div class="bulk-create-link-ref-grid" style="grid-template-columns: 1fr;">
-                    <div>
-                      <label>Cible (${escapeHtml(targetEntity)})</label>
-                      <select class="bulk-create-ref-mode" data-group="${group.id}" data-row="${row.id}" data-rlink="${link.id}" data-field="targetMode" oninput="updateBulkCreateEntityLinkMode(${group.id}, ${row.id}, ${link.id}, this.value)">${targetModeOptions}</select>
-                      ${renderReferenceSelect(targetOptions, link.targetRef, `updateBulkCreateEntityLinkRef(${group.id}, ${row.id}, ${link.id}, this.value)`, `data-group="${group.id}" data-row="${row.id}" data-rlink="${link.id}" data-field="targetRef"`)}
-                    </div>
-                  </div>
-                  <div class="bulk-create-grid-fields">
-                    ${linkFields}
+                    <span> avec </span>
+                    <select class="bulk-create-ref-mode" data-group="${group.id}" data-row="${row.id}" data-rlink="${link.id}" data-field="targetMode" oninput="updateBulkCreateEntityLinkMode(${group.id}, ${row.id}, ${link.id}, this.value)" style="${targetEntity === 'Image' ? 'display:none;' : ''}">
+                      ${targetModeOptions}
+                    </select>
+                    ${targetRefSelect}
+              <input type="text" placeholder="Description courte (ex: commanditaire)" value="${escapeHtml(link.fields?.description || '')}" oninput="updateBulkCreateEntityLinkField(${group.id}, ${row.id}, ${link.id}, 'description', this.value)">
+              <button type="button" class="btn-remove-link" onclick="removeBulkCreateEntityLink(${group.id}, ${row.id}, ${link.id})" style="background: #ffebee; color:#b71c1c; padding: 6px 10px; border-radius: 8px;">❌</button>
+            </div>
+                  <div class="link-date-fields" style="display: ${hasDates ? 'inherit' : 'none'};">
+                    <label>Dates du lien (optionnelles) :</label>
+                    <input type="date" title="Date début" value="${escapeHtml(link.fields?.Date_Debut || '')}" oninput="updateBulkCreateEntityLinkField(${group.id}, ${row.id}, ${link.id}, 'Date_Debut', this.value)">
+                    <select oninput="updateBulkCreateEntityLinkField(${group.id}, ${row.id}, ${link.id}, 'precision_Debut', this.value)">
+                      <option value="Jour" ${link.fields?.precision_Debut === "Jour" ? "selected" : ""}>Jour</option>
+                      <option value="Mois" ${link.fields?.precision_Debut === "Mois" ? "selected" : ""}>Mois</option>
+                      <option value="Année" ${link.fields?.precision_Debut === "Année" ? "selected" : ""}>Année</option>
+                    </select>
+                    <span> à </span>
+                    <input type="date" title="Date fin" value="${escapeHtml(link.fields?.Date_Fin || '')}" oninput="updateBulkCreateEntityLinkField(${group.id}, ${row.id}, ${link.id}, 'Date_Fin', this.value)">
+                    <select oninput="updateBulkCreateEntityLinkField(${group.id}, ${row.id}, ${link.id}, 'precision_Fin', this.value)">
+                      <option value="Jour" ${link.fields?.precision_Fin === "Jour" ? "selected" : ""}>Jour</option>
+                      <option value="Mois" ${link.fields?.precision_Fin === "Mois" ? "selected" : ""}>Mois</option>
+                      <option value="Année" ${link.fields?.precision_Fin === "Année" ? "selected" : ""}>Année</option>
+                    </select>
                   </div>
                 </div>`;
             }).join("");
@@ -2246,50 +2302,56 @@ function renderBulkCreateGroups() {
         }).join("");
 
     const groupLinksHtml = (!group.links || group.links.length === 0)
-      ? "<p>Aucun lien commun à ce groupe.</p>"
+      ? ""
       : group.links.map((link) => {
           const targetEntity = getGroupLinkTargetEntity(link.table, group.table);
           const allowedTables = getGroupLinkAllowedTables(group.table);
           
-          const gLinkTableOptions = allowedTables.map(t => 
-            `<option value="${escapeHtml(t)}" ${t === link.table ? "selected" : ""}>${escapeHtml(LINK_TABLE_LABELS[t] || t)}</option>`
-          ).join("");
+          const gLinkTableOptions = allowedTables.map(t => {
+            const targetEnt = getGroupLinkTargetEntity(t, group.table);
+            return `<option value="${escapeHtml(t)}" ${t === link.table ? "selected" : ""}>${escapeHtml(targetEnt)}</option>`;
+          }).join("");
           
           const targetModeOptions = targetEntity === "Image"
             ? '<option value="existing" selected>Existant</option>'
-            : `<option value="draft" ${link.targetMode === "draft" ? "selected" : ""}>Draft</option><option value="existing" ${link.targetMode === "existing" ? "selected" : ""}>Existant</option>`;
+            : `<option value="draft" ${link.targetMode === "draft" ? "selected" : ""}>Draft (en cours de création)</option><option value="existing" ${link.targetMode === "existing" ? "selected" : ""}>Existant</option>`;
 
           const targetOptions = link.targetMode === "draft"
             ? getDraftReferenceOptions(targetEntity)
             : getExistingReferenceOptions(targetEntity);
             
-          const linkFields = getLinkFieldConfig(link.table)
-            .map((field) => renderBulkFieldControl(
-              field,
-              link.fields?.[field.name] || "",
-              `updateBulkCreateGroupLinkField(${group.id}, ${link.id}, '${field.name}', this.value)`,
-              "",
-              `data-group="${group.id}" data-glink="${link.id}" data-field="${field.name}"`
-            ))
-            .join("");
+          const hasDates = tablesWithDates.has(link.table);
+          
+          const targetRefSelect = renderReferenceSelect(targetOptions, link.targetRef, `updateBulkCreateGroupLinkRef(${group.id}, ${link.id}, this.value)`, `data-group="${group.id}" data-glink="${link.id}" data-field="targetRef"`);
 
-          return `<div class="bulk-create-link-row" data-glink-id="${link.id}">
-            <div class="bulk-create-link-head">
-              <label>Lien global (Cible: ${escapeHtml(targetEntity)})</label>
+          return `<div class="bulk-create-link-row link-form-row" data-glink-id="${link.id}">
+            <div>
               <select class="bulk-create-link-table" data-group="${group.id}" data-glink="${link.id}" data-field="table" onchange="updateBulkCreateGroupLinkTable(${group.id}, ${link.id}, this.value)">
                 ${gLinkTableOptions}
               </select>
-              <button type="button" onclick="removeBulkCreateGroupLink(${group.id}, ${link.id})">Retirer</button>
+              <span> avec </span>
+              <select class="bulk-create-ref-mode" data-group="${group.id}" data-glink="${link.id}" data-field="targetMode" oninput="updateBulkCreateGroupLinkMode(${group.id}, ${link.id}, this.value)" style="${targetEntity === 'Image' ? 'display:none;' : ''}">
+                ${targetModeOptions}
+              </select>
+              ${targetRefSelect}
+              <input type="text" placeholder="Description courte (ex: commanditaire)" value="${escapeHtml(link.fields?.description || '')}" oninput="updateBulkCreateGroupLinkField(${group.id}, ${link.id}, 'description', this.value)">
+              <button type="button" class="btn-remove-link" onclick="removeBulkCreateGroupLink(${group.id}, ${link.id})" style="background: #ffebee; color:#b71c1c; padding: 6px 10px; border-radius: 8px;">❌</button>
             </div>
-            <div class="bulk-create-link-ref-grid" style="grid-template-columns: 1fr;">
-              <div>
-                <label>Cible (${escapeHtml(targetEntity)})</label>
-                <select class="bulk-create-ref-mode" data-group="${group.id}" data-glink="${link.id}" data-field="targetMode" oninput="updateBulkCreateGroupLinkMode(${group.id}, ${link.id}, this.value)">${targetModeOptions}</select>
-                ${renderReferenceSelect(targetOptions, link.targetRef, `updateBulkCreateGroupLinkRef(${group.id}, ${link.id}, this.value)`, `data-group="${group.id}" data-glink="${link.id}" data-field="targetRef"`)}
-              </div>
-            </div>
-            <div class="bulk-create-grid-fields">
-              ${linkFields}
+            <div class="link-date-fields" style="display: ${hasDates ? 'inherit' : 'none'};">
+              <label>Dates du lien (optionnelles) :</label>
+              <input type="date" title="Date début" value="${escapeHtml(link.fields?.Date_Debut || '')}" oninput="updateBulkCreateGroupLinkField(${group.id}, ${link.id}, 'Date_Debut', this.value)">
+              <select oninput="updateBulkCreateGroupLinkField(${group.id}, ${link.id}, 'precision_Debut', this.value)">
+                <option value="Jour" ${link.fields?.precision_Debut === "Jour" ? "selected" : ""}>Jour</option>
+                <option value="Mois" ${link.fields?.precision_Debut === "Mois" ? "selected" : ""}>Mois</option>
+                <option value="Année" ${link.fields?.precision_Debut === "Année" ? "selected" : ""}>Année</option>
+              </select>
+              <span> à </span>
+              <input type="date" title="Date fin" value="${escapeHtml(link.fields?.Date_Fin || '')}" oninput="updateBulkCreateGroupLinkField(${group.id}, ${link.id}, 'Date_Fin', this.value)">
+              <select oninput="updateBulkCreateGroupLinkField(${group.id}, ${link.id}, 'precision_Fin', this.value)">
+                <option value="Jour" ${link.fields?.precision_Fin === "Jour" ? "selected" : ""}>Jour</option>
+                <option value="Mois" ${link.fields?.precision_Fin === "Mois" ? "selected" : ""}>Mois</option>
+                <option value="Année" ${link.fields?.precision_Fin === "Année" ? "selected" : ""}>Année</option>
+              </select>
             </div>
           </div>`;
       }).join("");
@@ -2314,6 +2376,7 @@ function renderBulkCreateGroups() {
         <div class="bulk-create-grid-fields">
           ${commonFieldsHtml}
         </div>
+        ${addCommonFieldHtml}
       </div>
       <div class="bulk-create-entity-list">${entityRowsHtml}</div>
       <button type="button" onclick="addBulkCreateEntityRow(${group.id})">Ajouter une entité à ce groupe</button>
@@ -2533,8 +2596,8 @@ function validateDatePrecisionPair(data, dateField, precisionField, contextLabel
   const errors = [];
   const dateValue = String(data?.[dateField] || "").trim();
   const precisionValue = String(data?.[precisionField] || "").trim();
-  if (!dateValue && precisionValue) {
-    errors.push({ msg: `${contextLabel}: ${precisionField} sans ${dateField}.`, selector: targetSelector });
+  if (!dateValue && precisionValue && precisionValue !== "Jour") {
+    errors.push({ msg: `${contextLabel}: ${precisionField} renseigné sans ${dateField}.`, selector: targetSelector });
   }
   return errors;
 }

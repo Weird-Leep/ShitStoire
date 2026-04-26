@@ -344,7 +344,7 @@ function initSelect2Admin(scope = document) {
   const $ = window.jQuery;
   const $scope = $(scope);
   const targets = $scope.find(
-    "#link-target-type, #link-target-id, .admin-filter-kind, .admin-filter-target-type, .admin-filter-target-values, #bulk-link-target-type, #bulk-link-target-ids, .bulk-create-entity-table, .bulk-create-link-table, .bulk-create-ref-mode, .bulk-create-ref-select",
+    "#link-target-type, #link-target-id, #link-target-mode, .admin-filter-kind, .admin-filter-target-type, .admin-filter-target-values, #bulk-link-target-type, #bulk-link-target-ids, .bulk-create-entity-table, .bulk-create-link-table, .bulk-create-ref-mode, .bulk-create-ref-select",
   );
 
   targets.each(function () {
@@ -1796,13 +1796,11 @@ function ensureBulkCreateEntityOptions(entityName) {
     .then((res) => res.json())
     .then((rows) => {
       bulkCreateEntityOptionsCache[entityName] = { loading: false, rows: Array.isArray(rows) ? rows : [] };
-      renderBulkCreateGroups();
-      renderBulkCreateStatus();
+      renderBulkCreate();
     })
     .catch(() => {
       bulkCreateEntityOptionsCache[entityName] = { loading: false, rows: [] };
-      renderBulkCreateGroups();
-      renderBulkCreateStatus();
+      renderBulkCreate();
     });
 
   return true;
@@ -2192,29 +2190,31 @@ function renderBulkCreateGroups() {
       ? group.activeCommonFields.map(fieldName => {
           const field = schemaFields.find(f => f.name === fieldName);
           if (!field) return "";
-          return `<div class="bulk-create-common-field-wrapper" style="display: flex; align-items: flex-end; gap: 8px; margin-bottom: 8px;">
-            <div style="flex: 1;">
-              ${renderBulkFieldControl(
+          return "<div class=\"bulk-create-common-field-wrapper bulk-create-row-head\">" +
+            "<div class=\"bulk-create-common-field-control\">" +
+              renderBulkFieldControl(
                 field,
                 group.commonData[field.name] || "",
-                `updateBulkCreateGroupField(${group.id}, '${field.name}', this.value)`,
+                "updateBulkCreateGroupField(" + group.id + ", '" + field.name + "', this.value)",
                 "",
-                `data-group="${group.id}" data-field="${field.name}" data-is-common="true"`
-              )}
-            </div>
-            <button type="button" onclick="removeBulkCreateGroupCommonField(${group.id}, '${field.name}')" title="Retirer" style="padding: 10px; cursor: pointer; background: #ffebee; border: none; border-radius: 6px; color: #b71c1c; font-weight: bold;">❌</button>
-          </div>`;
+                "data-group=\"" + group.id + "\" data-field=\"" + field.name + "\" data-is-common=\"true\""
+              ) +
+            "</div>" +
+            "<button type=\"button\" class=\"bulk-create-common-remove\" onclick=\"removeBulkCreateGroupCommonField(" + group.id + ", '" + field.name + "')\" title=\"Retirer\">❌</button>" +
+          "</div>";
         }).join("")
       : "";
 
     const addCommonFieldHtml = availableFieldsForCommon.length > 0 
-      ? `<div style="margin-top: 10px; display: flex; gap: 8px; align-items: center;">
-           <select id="bulk-create-common-field-select-${group.id}">
-             <option value="">-- Choisir un champ commun --</option>
-             ${availableFieldsForCommon.map(f => `<option value="${escapeHtml(f.name)}">${escapeHtml(f.label)}</option>`).join("")}
-           </select>
-           <button type="button" onclick="addBulkCreateGroupCommonField(${group.id})">Ajouter ce champ commun</button>
-         </div>`
+      ? "<div class=\"bulk-create-common-add bulk-create-row-head\">" +
+          "<select id=\"bulk-create-common-field-select-" + group.id + "\">" +
+            "<option value=\"\">-- Choisir un champ commun --</option>" +
+            availableFieldsForCommon.map(function(f) {
+              return "<option value=\"" + escapeHtml(f.name) + "\">" + escapeHtml(f.label) + "</option>";
+            }).join("") +
+          "</select>" +
+          "<button type=\"button\" onclick=\"addBulkCreateGroupCommonField(" + group.id + ")\">Ajouter ce champ commun</button>" +
+        "</div>"
       : "";
 
     const entityRowsHtml = group.entities.length === 0
@@ -2225,7 +2225,7 @@ function renderBulkCreateGroups() {
               field,
               row.overrides[field.name] || "",
               `updateBulkCreateEntityField(${group.id}, ${row.id}, '${field.name}', this.value)`,
-              "Surcharge ",
+              "",
               `data-group="${group.id}" data-row="${row.id}" data-field="${field.name}"`
             ))
             .join("");
@@ -2259,14 +2259,16 @@ function renderBulkCreateGroups() {
                       ${rLinkTableOptions}
                     </select>
                     <span> avec </span>
-                    <select class="bulk-create-ref-mode" data-group="${group.id}" data-row="${row.id}" data-rlink="${link.id}" data-field="targetMode" oninput="updateBulkCreateEntityLinkMode(${group.id}, ${row.id}, ${link.id}, this.value)" style="${targetEntity === 'Image' ? 'display:none;' : ''}">
-                      ${targetModeOptions}
-                    </select>
+                    <span class="bulk-create-mode-slot ${targetEntity === "Image" ? "is-hidden" : ""}">
+                      <select class="bulk-create-ref-mode" data-group="${group.id}" data-row="${row.id}" data-rlink="${link.id}" data-field="targetMode" oninput="updateBulkCreateEntityLinkMode(${group.id}, ${row.id}, ${link.id}, this.value)">
+                        ${targetModeOptions}
+                      </select>
+                    </span>
                     ${targetRefSelect}
               <input type="text" placeholder="Description courte (ex: commanditaire)" value="${escapeHtml(link.fields?.description || '')}" oninput="updateBulkCreateEntityLinkField(${group.id}, ${row.id}, ${link.id}, 'description', this.value)">
               <button type="button" class="btn-remove-link" onclick="removeBulkCreateEntityLink(${group.id}, ${row.id}, ${link.id})" style="background: #ffebee; color:#b71c1c; padding: 6px 10px; border-radius: 8px;">❌</button>
             </div>
-                  <div class="link-date-fields" style="display: ${hasDates ? 'inherit' : 'none'};">
+                  <div class="link-date-fields ${hasDates ? "" : "is-hidden"}">
                     <label>Dates du lien (optionnelles) :</label>
                     <input type="date" title="Date début" value="${escapeHtml(link.fields?.Date_Debut || '')}" oninput="updateBulkCreateEntityLinkField(${group.id}, ${row.id}, ${link.id}, 'Date_Debut', this.value)">
                     <select oninput="updateBulkCreateEntityLinkField(${group.id}, ${row.id}, ${link.id}, 'precision_Debut', this.value)">
@@ -2330,14 +2332,16 @@ function renderBulkCreateGroups() {
                 ${gLinkTableOptions}
               </select>
               <span> avec </span>
-              <select class="bulk-create-ref-mode" data-group="${group.id}" data-glink="${link.id}" data-field="targetMode" oninput="updateBulkCreateGroupLinkMode(${group.id}, ${link.id}, this.value)" style="${targetEntity === 'Image' ? 'display:none;' : ''}">
-                ${targetModeOptions}
-              </select>
+              <span class="bulk-create-mode-slot ${targetEntity === "Image" ? "is-hidden" : ""}">
+                <select class="bulk-create-ref-mode" data-group="${group.id}" data-glink="${link.id}" data-field="targetMode" oninput="updateBulkCreateGroupLinkMode(${group.id}, ${link.id}, this.value)">
+              ${targetModeOptions}
+                </select>
+              </span>
               ${targetRefSelect}
               <input type="text" placeholder="Description courte (ex: commanditaire)" value="${escapeHtml(link.fields?.description || '')}" oninput="updateBulkCreateGroupLinkField(${group.id}, ${link.id}, 'description', this.value)">
               <button type="button" class="btn-remove-link" onclick="removeBulkCreateGroupLink(${group.id}, ${link.id})" style="background: #ffebee; color:#b71c1c; padding: 6px 10px; border-radius: 8px;">❌</button>
             </div>
-            <div class="link-date-fields" style="display: ${hasDates ? 'inherit' : 'none'};">
+            <div class="link-date-fields ${hasDates ? "" : "is-hidden"}">
               <label>Dates du lien (optionnelles) :</label>
               <input type="date" title="Date début" value="${escapeHtml(link.fields?.Date_Debut || '')}" oninput="updateBulkCreateGroupLinkField(${group.id}, ${link.id}, 'Date_Debut', this.value)">
               <select oninput="updateBulkCreateGroupLinkField(${group.id}, ${link.id}, 'precision_Debut', this.value)">

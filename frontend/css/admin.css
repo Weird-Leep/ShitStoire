@@ -529,6 +529,64 @@ header nav a.active {
     margin-bottom: 12px;
 }
 
+.bulk-create-mode-slot {
+    display: inline-flex;
+    align-items: center;
+}
+
+.bulk-create-mode-slot.is-hidden {
+    display: none;
+}
+
+/* Base explicite au lieu de inherit */
+.bulk-create-link-row .link-date-fields {
+    display: block;
+}
+
+.bulk-create-link-row .link-date-fields.is-hidden {
+    display: none;
+}
+
+.bulk-create-common-field-wrapper {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    margin-bottom: 8px;
+}
+
+.bulk-create-common-field-control {
+    flex: 1;
+    min-width: 0;
+}
+
+.bulk-create-common-add {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+.bulk-create-common-add select {
+    flex: 1;
+    min-width: 240px;
+    padding: 8px 10px;
+    border: 1px solid var(--admin-border-strong);
+    border-radius: 10px;
+    font-family: inherit;
+    background: #ffffff;
+}
+
+.bulk-create-common-remove {
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    background: #ffebee;
+    color: #b71c1c;
+    font-weight: 700;
+    cursor: pointer;
+}
+
 .link-form-row > div:first-child {
     display: flex;
     gap: 10px;
